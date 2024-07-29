@@ -16,10 +16,10 @@ type RecoverableRejection interface {
 
 type authenticator struct {
 	macaroonMinter MacaroonMinter
-	errorHandler   http.HandlerFunc
+	errorHandler   http.Handler
 }
 
-func Authenticator(minter MacaroonMinter, errorHandler http.HandlerFunc) authenticator {
+func Authenticator(minter MacaroonMinter, errorHandler http.Handler) authenticator {
 	return authenticator{
 		macaroonMinter: minter,
 		errorHandler:   errorHandler,
@@ -44,7 +44,7 @@ func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ctx, cancelCause := context.WithCancelCause(r.Context())
 		cancelCause(fmt.Errorf("%w: %w", ErrFailedMacaroonMinting, err))
-		a.errorHandler(w, r.WithContext(ctx))
+		a.errorHandler.ServeHTTP(w, r.WithContext(ctx))
 		return
 	}
 
