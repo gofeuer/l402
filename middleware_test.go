@@ -30,23 +30,21 @@ func TestGetL402AuthorizationHeader(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			r := http.Request{
-				Header: make(http.Header),
-			}
+			r := http.Request{Header: make(http.Header)}
 			r.Header.Set("Authorization", test.headerValue)
 
 			macaroonBase64, preimageHex, found := getL402AuthorizationHeader(&r)
 
 			if macaroonBase64 != test.expectedMacaroon {
-				t.Errorf("test failed: %s, expected %s but got %s", name, test.expectedMacaroon, macaroonBase64)
+				t.Errorf("expected: %s but got: %s", test.expectedMacaroon, macaroonBase64)
 			}
 
 			if preimageHex != test.expectedPreimage {
-				t.Errorf("test failed: %s, expected %s but got %s", name, test.expectedPreimage, preimageHex)
+				t.Errorf("expected: %s but got: %s", test.expectedPreimage, preimageHex)
 			}
 
 			if found != test.expectedFound {
-				t.Errorf("test failed: %s, expected %v but got %v", name, test.expectedFound, found)
+				t.Errorf("expected: %v but got: %v", test.expectedFound, found)
 			}
 		})
 	}
@@ -77,7 +75,7 @@ func TestValidatePreimage(t *testing.T) {
 			valid := validatePreimage(test.preimageHex, paymentHash)
 
 			if valid != test.expectedResult {
-				t.Errorf("test failed: %s", name)
+				t.Errorf("expected: %v but got: %v", test.expectedResult, valid)
 			}
 		})
 	}

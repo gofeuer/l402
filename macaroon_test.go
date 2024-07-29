@@ -48,11 +48,11 @@ func TestMarchalIdentifier(t *testing.T) {
 			macaroonID, err := MarchalIdentifier(identifier)
 
 			if !errors.Is(err, test.expectedErr) {
-				t.Errorf("test failed: expected err: %v but got %v", test.expectedErr, err)
+				t.Errorf("expected: %v but got: %v", test.expectedErr, err)
 			}
 
 			if !bytes.Equal(macaroonID, test.expectedMacaroonId) {
-				t.Errorf("test failed: expected macaroonID: %s but got %s", test.expectedMacaroonId, macaroonID)
+				t.Errorf("expected: %s but got: %s", test.expectedMacaroonId, macaroonID)
 			}
 		})
 	}
@@ -93,15 +93,15 @@ func TestUnmarshalIdentifier(t *testing.T) {
 			identifier, err := UnmarshalIdentifier(test.macaroonID)
 
 			if !errors.Is(err, test.expectedErr) {
-				t.Errorf("test failed: expected err: %v but got %v", test.expectedErr, err)
+				t.Errorf("expected: %v but got: %v", test.expectedErr, err)
 			}
 
 			if identifier.PaymentHash != test.expectedPaymentHash {
-				t.Errorf("test failed: expected PaymentHash: %s but got %s", test.expectedPaymentHash, identifier.PaymentHash)
+				t.Errorf("expected: %s but got: %s", test.expectedPaymentHash, identifier.PaymentHash)
 			}
 
 			if identifier.Id != test.expectedId {
-				t.Errorf("test failed: expected ID: %s but got %s", test.expectedId, identifier.Id)
+				t.Errorf("expected:: %s but got: %s", test.expectedId, identifier.Id)
 			}
 		})
 	}
