@@ -17,7 +17,7 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	macaroonBase64, preimageHex, found := getL402AuthorizationHeader(r)
 	if !found {
 		ctx, cancelCause := context.WithCancelCause(r.Context())
-		cancelCause(ErrAuthenticationRequired)
+		cancelCause(ErrPaymentRequired)
 		p.authenticator.ServeHTTP(w, r.WithContext(ctx))
 		return
 	}

@@ -37,7 +37,7 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 				return "macaroonBase64", "invoice", nil
 			},
 			expectedHeaderAuthenticate: `L402 macaroon="macaroonBase64", invoice="invoice"`,
-			expectedResponse:           "some unrecoverable error",
+			expectedResponse:           `some unrecoverable error`,
 			expectedResponseStatus:     http.StatusPaymentRequired,
 		},
 		"recoverable rejection": {
@@ -47,15 +47,15 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 			},
 			expectedHeaderAuthenticate:     `L402 macaroon="macaroonBase64", invoice="invoice"`,
 			expectedHeaderAuthenticateInfo: `rocovery="tier-upgrade" minimum-tier="premium-plus"`,
-			expectedResponse:               "authentication required or altered macaroon",
+			expectedResponse:               `payment required`,
 			expectedResponseStatus:         http.StatusPaymentRequired,
 		},
-		"simple authentication required": {
+		"simple payment required": {
 			mintWithInvoice: func(r *http.Request) (string, string, error) {
 				return "macaroonBase64", "invoice", nil
 			},
 			expectedHeaderAuthenticate: `L402 macaroon="macaroonBase64", invoice="invoice"`,
-			expectedResponse:           "authentication required",
+			expectedResponse:           `payment required`,
 			expectedResponseStatus:     http.StatusPaymentRequired,
 		},
 	}
@@ -134,9 +134,9 @@ func (s spyErrorHandler) Is(err error) bool {
 type fakeRecoverableRejection string
 
 func (f fakeRecoverableRejection) Error() string {
-	return "authentication required or altered macaroon"
+	return ErrPaymentRequired.Error()
 }
 
-func (f fakeRecoverableRejection) SignalRecovery(r http.Header) {
-	r.Add("Authentication-Info", string(f))
+func (f fakeRecoverableRejection) AdviseRecovery(header http.Header) {
+	header.Add("Authentication-Info", string(f))
 }

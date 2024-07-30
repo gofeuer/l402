@@ -10,7 +10,7 @@ import (
 type Rejection error
 
 type RecoverableRejection interface {
-	SignalRecovery(http.Header)
+	AdviseRecovery(http.Header)
 	error
 }
 

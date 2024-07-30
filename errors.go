@@ -7,12 +7,12 @@ import (
 )
 
 var (
-	ErrInvalidMacaroon        = errors.New("invalid macaroon")
-	ErrInvalidPreimage        = errors.New("invalid preimage")
-	ErrFailedInvoiceRequest   = errors.New("failed invoice request")
-	ErrFailedMacaroonMinting  = errors.New("failed macaroon minting")
-	ErrAuthenticationRequired = errors.New("authentication required")
-	ErrUnknownVersion         = errors.New("unknown L402 version")
+	ErrInvalidMacaroon       = errors.New("invalid macaroon")
+	ErrInvalidPreimage       = errors.New("invalid preimage")
+	ErrFailedInvoiceRequest  = errors.New("failed invoice request")
+	ErrFailedMacaroonMinting = errors.New("failed macaroon minting")
+	ErrPaymentRequired       = errors.New("payment required")
+	ErrUnknownVersion        = errors.New("unknown L402 version")
 )
 
 func DefaultErrorHandler(w http.ResponseWriter, r *http.Request) {
