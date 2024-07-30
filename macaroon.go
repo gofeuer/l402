@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -45,6 +46,25 @@ func MarshalMacaroon(macaroon macaroon.Macaroon) (string, error) {
 		return "", err
 	} else {
 		return base64.StdEncoding.EncodeToString(encodedMacaroon), nil
+	}
+}
+
+func MarshalMacaroons(macaroons []macaroon.Macaroon) (string, error) {
+	switch len(macaroons) {
+	case 0:
+		return "", errors.New("can't marshal empty macaroon slice")
+	case 1:
+		return MarshalMacaroon(macaroons[0])
+	default:
+		var macaroonsBase64 string
+		for i, macaroon := range macaroons {
+			if macaroonBase64, err := MarshalMacaroon(macaroon); err != nil {
+				return "", fmt.Errorf("%w: index: %d", err, i)
+			} else {
+				macaroonsBase64 += "," + macaroonBase64
+			}
+		}
+		return macaroonsBase64[1:], nil
 	}
 }
 
