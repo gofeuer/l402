@@ -42,7 +42,7 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Check if macarron is singed by a valid key and that it grants access to the requested resource
 	if rejection := p.accessAuthority.ApproveAccess(r, macaroon, identifier); rejection != nil {
 		// The presented macaroon might not have been singed properlly or was revoked
-		// Or the presented macaroon is valid but doesn't grant access to this resourse
+		// Or the presented macaroon is valid but doesn't grant access to this resource
 		// So we give the client the option to re-authenticate with a proper macaroon
 		ctx, cancelCause := context.WithCancelCause(ctx)
 		cancelCause(rejection)
