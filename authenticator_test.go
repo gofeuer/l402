@@ -15,7 +15,7 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 	tests := map[string]struct {
 		rejection                      error
 		mintWithInvoice                func(r *http.Request) (string, string, error)
-		expectedError                  spyErrorHandler
+		expectedError                  spyHandler
 		expectedHeaderAuthenticate     string
 		expectedHeaderAuthenticateInfo string
 		expectedResponse               string
@@ -25,9 +25,10 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 			mintWithInvoice: func(r *http.Request) (string, string, error) {
 				return "", "", errors.New("some error")
 			},
-			expectedError: spyErrorHandler{
-				called:      true,
-				cancelCause: fmt.Errorf("%w: %w", ErrFailedMacaroonMinting, errors.New("some error")),
+			expectedError: spyHandler{
+				called:          true,
+				cancelCause:     fmt.Errorf("%w: %w", ErrFailedMacaroonMinting, errors.New("some error")),
+				replyStatusCode: http.StatusInternalServerError,
 			},
 			expectedResponseStatus: http.StatusInternalServerError,
 		},
@@ -63,7 +64,7 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			minter := mockMinter{test.mintWithInvoice}
-			errorHandler := spyErrorHandler{}
+			errorHandler := spyHandler{replyStatusCode: test.expectedError.replyStatusCode}
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest("GET", "/some_proctected_resource", nil)
 			if test.rejection != nil {
@@ -80,8 +81,9 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 				t.Errorf("expected: %v but got: %v", test.expectedError.called, errorHandler.called)
 			}
 
-			if !errors.Is(errorHandler, test.expectedError) {
-				t.Errorf("expected: %s but got: %s", test.expectedError.Error(), errorHandler.Error())
+			if !(errors.Is(errorHandler.cancelCause, test.expectedError.cancelCause) ||
+				errorHandler.cancelCause.Error() == test.expectedError.cancelCause.Error()) {
+				t.Errorf("expected: %s but got: %s", test.expectedError.cancelCause.Error(), errorHandler.cancelCause.Error())
 			}
 
 			if headerAuthenticate := response.Header.Get("WWW-Authenticate"); headerAuthenticate != test.expectedHeaderAuthenticate {
@@ -112,23 +114,18 @@ func (m mockMinter) MintWithInvoice(r *http.Request) (string, string, error) {
 	return m.mintWithInvoice(r)
 }
 
-type spyErrorHandler struct {
-	called      bool
-	cancelCause error
+type spyHandler struct {
+	called          bool
+	cancelCause     error
+	replyStatusCode int
 }
 
-func (s *spyErrorHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *spyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.called = true
 	s.cancelCause = context.Cause(r.Context())
-	w.WriteHeader(http.StatusInternalServerError)
-}
-
-func (s spyErrorHandler) Error() string {
-	return s.cancelCause.Error()
-}
-
-func (s spyErrorHandler) Is(err error) bool {
-	return s.cancelCause.Error() == err.Error()
+	if s.replyStatusCode != 0 {
+		w.WriteHeader(s.replyStatusCode)
+	}
 }
 
 type fakeRecoverableRejection string
