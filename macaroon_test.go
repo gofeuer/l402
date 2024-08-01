@@ -72,11 +72,11 @@ func TestMarchalIdentifier(t *testing.T) {
 			expectedErr: ErrUnknownVersion,
 		},
 		"success": {
-			paymentHash: [32]byte{
+			paymentHash: [BlockSize]byte{
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			id: [32]byte{
+			id: [BlockSize]byte{
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
@@ -130,11 +130,11 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
-			expectedPaymentHash: [32]byte{
+			expectedPaymentHash: [BlockSize]byte{
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			expectedId: [32]byte{
+			expectedId: [BlockSize]byte{
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
