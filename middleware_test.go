@@ -12,7 +12,7 @@ import (
 func TestProxy_ServeHTTP(t *testing.T) {
 	tests := map[string]struct {
 		authorizationHeader    string
-		approveAccess          func(*http.Request, macaroon.Macaroon, Identifier) Rejection
+		approveAccess          func(*http.Request, map[Identifier]macaroon.Macaroon) Rejection
 		expectedAuthenticator  spyHandler
 		apiHandler             spyHandler
 		expectedError          spyHandler
@@ -46,7 +46,7 @@ func TestProxy_ServeHTTP(t *testing.T) {
 		},
 		"rejected access": {
 			authorizationHeader: "L402 AgJCAABmaHqt+GK9d2yPwYuOn44gCJcUhW7iM7OQKlkdDV8pJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGIPYUpoJjGXj6TR3qNyibnh+n2R1Dj5HEt5dV4GfbU0jX:0000000000000000000000000000000000000000000000000000000000000000",
-			approveAccess: func(r *http.Request, m macaroon.Macaroon, i Identifier) Rejection {
+			approveAccess: func(*http.Request, map[Identifier]macaroon.Macaroon) Rejection {
 				return ErrPaymentRequired
 			},
 			expectedAuthenticator: spyHandler{
@@ -58,7 +58,7 @@ func TestProxy_ServeHTTP(t *testing.T) {
 		},
 		"success": {
 			authorizationHeader: "L402 AgJCAABmaHqt+GK9d2yPwYuOn44gCJcUhW7iM7OQKlkdDV8pJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGIPYUpoJjGXj6TR3qNyibnh+n2R1Dj5HEt5dV4GfbU0jX:0000000000000000000000000000000000000000000000000000000000000000",
-			approveAccess: func(r *http.Request, m macaroon.Macaroon, i Identifier) Rejection {
+			approveAccess: func(*http.Request, map[Identifier]macaroon.Macaroon) Rejection {
 				return nil // access approved
 			},
 			apiHandler: spyHandler{
@@ -167,9 +167,12 @@ func TestValidatePreimage(t *testing.T) {
 		6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 56, 21,
 	}
 
+	macaroons := make(map[Identifier]macaroon.Macaroon, 1)
+	macaroons[Identifier{PaymentHash: paymentHash}] = macaroon.Macaroon{}
+
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			valid := validatePreimage(test.preimageHex, paymentHash)
+			valid := validatePreimage(macaroons, test.preimageHex)
 
 			if valid != test.expectedResult {
 				t.Errorf("expected: %v but got: %v", test.expectedResult, valid)
@@ -179,9 +182,9 @@ func TestValidatePreimage(t *testing.T) {
 }
 
 type mockAccessAuthority struct {
-	approveAccess func(*http.Request, macaroon.Macaroon, Identifier) Rejection
+	approveAccess func(*http.Request, map[Identifier]macaroon.Macaroon) Rejection
 }
 
-func (a mockAccessAuthority) ApproveAccess(r *http.Request, m macaroon.Macaroon, i Identifier) Rejection {
-	return a.approveAccess(r, m, i)
+func (a mockAccessAuthority) ApproveAccess(r *http.Request, m map[Identifier]macaroon.Macaroon) Rejection {
+	return a.approveAccess(r, m)
 }

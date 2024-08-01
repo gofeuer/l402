@@ -3,6 +3,7 @@ package l402
 import (
 	"bytes"
 	"errors"
+	"reflect"
 	"testing"
 
 	macaroon "gopkg.in/macaroon.v2"
@@ -54,6 +55,72 @@ func TestMarshalMacaroons(t *testing.T) {
 
 			if macaroonBase64 != test.expectedMacaroonBase64 {
 				t.Errorf("expected: %v but got: %v", test.expectedMacaroonBase64, macaroonBase64)
+			}
+		})
+	}
+}
+
+func TestUnmarshalMacaroons(t *testing.T) {
+	mac, _ := macaroon.New([]byte{1}, []byte{
+		0, 0, // Version
+		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+		3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4}, "", macaroon.V2)
+
+	tests := map[string]struct {
+		macaroonsBase64   string
+		expectedMacaroons map[Identifier]macaroon.Macaroon
+		expectedError     error
+	}{
+		"no macaroons": {
+			expectedError: errors.New("empty macaroon data"),
+		},
+		"defective macaroon": {
+			macaroonsBase64: "AGIAJEemVQUTEyNCR0exk7ek90Cg==",
+			expectedError:   errors.New("illegal base64 data at input byte 28"),
+		},
+		"one macaroon": {
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
+			expectedMacaroons: map[Identifier]macaroon.Macaroon{
+				{
+					Version:     0,
+					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+				}: *mac,
+			},
+		},
+		"many macaroons": {
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
+			expectedMacaroons: map[Identifier]macaroon.Macaroon{
+				{
+					Version:     0,
+					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+				}: *mac,
+				{
+					Version:     0,
+					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+				}: *mac,
+			},
+		},
+		"many defective macaroons": {
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AGIAJEemVQUTEyNCR0exk7ek90Cg==",
+			expectedError:   errors.New("illegal base64 data at input byte 28: index: 1"),
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			macaroons, err := UnmarshalMacaroons(test.macaroonsBase64)
+
+			if !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
+				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
+			}
+
+			if test.expectedError == nil && !reflect.DeepEqual(macaroons, test.expectedMacaroons) {
+				t.Errorf("expected: %v but got: %v", test.expectedMacaroons, macaroons)
 			}
 		})
 	}

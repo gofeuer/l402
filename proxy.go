@@ -11,7 +11,7 @@ type MacaroonMinter interface {
 }
 
 type AccessAuthority interface {
-	ApproveAccess(*http.Request, macaroon.Macaroon, Identifier) Rejection
+	ApproveAccess(*http.Request, map[Identifier]macaroon.Macaroon) Rejection
 }
 
 type proxy struct {

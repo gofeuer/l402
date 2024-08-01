@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 type ContextKey string
@@ -22,7 +24,7 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	macaroon, identifier, err := UnmarshalMacaroon(macaroonBase64)
+	macaroons, err := UnmarshalMacaroons(macaroonBase64)
 	if err != nil {
 		ctx, cancelCause := context.WithCancelCause(r.Context())
 		cancelCause(fmt.Errorf("%w: %w", ErrInvalidMacaroon, err))
@@ -30,9 +32,9 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := context.WithValue(r.Context(), KeyMacaroon, macaroon)
+	ctx := context.WithValue(r.Context(), KeyMacaroon, macaroons)
 
-	if valid := validatePreimage(preimageHex, identifier.PaymentHash); !valid {
+	if valid := validatePreimage(macaroons, preimageHex); !valid {
 		ctx, cancelCause := context.WithCancelCause(ctx)
 		cancelCause(ErrInvalidPreimage)
 		p.errorHandler.ServeHTTP(w, r.WithContext(ctx))
@@ -40,7 +42,7 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if macarron is singed by a valid key and that it grants access to the requested resource
-	if rejection := p.accessAuthority.ApproveAccess(r, macaroon, identifier); rejection != nil {
+	if rejection := p.accessAuthority.ApproveAccess(r, macaroons); rejection != nil {
 		// The presented macaroon might not have been singed properlly or was revoked
 		// Or the presented macaroon is valid but doesn't grant access to this resource
 		// So we give the client the option to re-authenticate with a proper macaroon
@@ -67,9 +69,15 @@ func getL402AuthorizationHeader(r *http.Request) (string, string, bool) {
 	return "", "", false
 }
 
-func validatePreimage(preimageHex string, paymentHash Hash) bool {
-	var preimage Hash
-	hex.Decode(preimage[:], []byte(preimageHex))
-	preimage = sha256.Sum256(preimage[:])
-	return preimage == paymentHash
+func validatePreimage(macaroons map[Identifier]macaroon.Macaroon, preimageHex string) bool {
+	var preimageHash Hash
+	hex.Decode(preimageHash[:], []byte(preimageHex))
+	preimageHash = sha256.Sum256(preimageHash[:])
+
+	for identifier := range macaroons {
+		if identifier.PaymentHash != preimageHash {
+			return false
+		}
+	}
+	return true
 }

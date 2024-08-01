@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	macaroon "gopkg.in/macaroon.v2"
 )
@@ -39,6 +40,29 @@ func UnmarshalMacaroon(macaroonBase64 string) (macaroon.Macaroon, Identifier, er
 	identifier, err := UnmarshalIdentifier(macaroon.Id())
 
 	return macaroon, identifier, err
+}
+
+func UnmarshalMacaroons(macaroonsBase64 string) (map[Identifier]macaroon.Macaroon, error) {
+	splitMacaroonBase64 := strings.Split(macaroonsBase64, ",")
+	macaroonCount := len(splitMacaroonBase64)
+
+	switch macaroonCount {
+	case 1:
+		macaroons := make(map[Identifier]macaroon.Macaroon, 1)
+		macaroon, identifier, err := UnmarshalMacaroon(splitMacaroonBase64[0])
+		macaroons[identifier] = macaroon
+		return macaroons, err
+	default:
+		macaroons := make(map[Identifier]macaroon.Macaroon, macaroonCount)
+		for i, macaroonBase64 := range splitMacaroonBase64 {
+			macaroon, identifier, err := UnmarshalMacaroon(macaroonBase64)
+			if err != nil {
+				return nil, fmt.Errorf("%w: index: %d", err, i)
+			}
+			macaroons[identifier] = macaroon
+		}
+		return macaroons, nil
+	}
 }
 
 func MarshalMacaroon(macaroon macaroon.Macaroon) (string, error) {
