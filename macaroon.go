@@ -95,9 +95,9 @@ func MarshalMacaroons(macaroons []macaroon.Macaroon) (string, error) {
 var byteOrder = binary.BigEndian
 
 var (
-	macaroonIdSize    = reflect.TypeFor[Identifier]().Size()
-	versionOffet      = reflect.TypeFor[uint16]().Size()
-	paymentHashOffset = reflect.TypeFor[Hash]().Size()
+	macaroonIdSize    = int(reflect.TypeFor[Identifier]().Size())
+	versionOffet      = int(reflect.TypeFor[uint16]().Size())
+	paymentHashOffset = int(reflect.TypeFor[Hash]().Size())
 )
 
 func MarchalIdentifier(identifier Identifier) ([]byte, error) {
@@ -117,6 +117,9 @@ func MarchalIdentifier(identifier Identifier) ([]byte, error) {
 }
 
 func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
+	if len(identifierBytes) != macaroonIdSize {
+		return Identifier{}, ErrUnknownVersion
+	}
 	if version := byteOrder.Uint16(identifierBytes); version != 0 {
 		return Identifier{}, fmt.Errorf("%w: %v", ErrUnknownVersion, version)
 	}

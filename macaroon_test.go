@@ -185,8 +185,37 @@ func TestUnmarshalIdentifier(t *testing.T) {
 		expectedId          ID
 		expectedErr         error
 	}{
-		"invalid version": {
-			macaroonID:  []byte{0, 2},
+		"empty value": {
+			macaroonID:  []byte{},
+			expectedErr: ErrUnknownVersion,
+		},
+		"malformed truncated value": {
+			macaroonID: []byte{
+				0, 0, // Version
+				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+			},
+			expectedErr: ErrUnknownVersion,
+		},
+		"malformed extended value": {
+			macaroonID: []byte{
+				0, 0, // Version
+				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
+				0, 5,
+			},
+			expectedErr: ErrUnknownVersion,
+		},
+		"wrong version": {
+			macaroonID: []byte{
+				0, 2, // Version
+				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
+			},
 			expectedErr: ErrUnknownVersion,
 		},
 		"success": {
@@ -213,7 +242,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 			identifier, err := UnmarshalIdentifier(test.macaroonID)
 
 			if !errors.Is(err, test.expectedErr) {
-				t.Errorf("expected: %v but got: %v", test.expectedErr, err)
+				t.Fatalf("expected: %v but got: %v", test.expectedErr, err)
 			}
 
 			if identifier.PaymentHash != test.expectedPaymentHash {
