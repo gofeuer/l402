@@ -2,7 +2,9 @@ package l402
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -41,7 +43,7 @@ func TestMarshalMacaroons(t *testing.T) {
 				{},
 				*macV2,
 			},
-			expectedError: errors.New("bad macaroon version v0: index: 2"),
+			expectedError: errors.New("index 2: bad macaroon version v0"),
 		},
 	}
 
@@ -50,7 +52,7 @@ func TestMarshalMacaroons(t *testing.T) {
 			macaroonBase64, err := MarshalMacaroons(test.macaroons)
 
 			if !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
-				t.Errorf("expected: %v but got: %v", test.expectedError, err)
+				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
 			}
 
 			if macaroonBase64 != test.expectedMacaroonBase64 {
@@ -78,7 +80,11 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		},
 		"defective macaroon": {
 			macaroonsBase64: "AGIAJEemVQUTEyNCR0exk7ek90Cg==",
-			expectedError:   errors.New("illegal base64 data at input byte 28"),
+			expectedError:   base64.CorruptInputError(28),
+		},
+		"one invalid macaroon": {
+			macaroonsBase64: "MDAwZWxvY2F0aW9uIAowMDEwaWRlbnRpZmllciAKMDAyZnNpZ25hdHVyZSCPtT9UwdGWx8khvYJlWY9BhJu6JUG3in2Ef49M+/Oukgo=",
+			expectedError:   ErrUnknownVersion,
 		},
 		"one macaroon": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
@@ -89,6 +95,10 @@ func TestUnmarshalMacaroons(t *testing.T) {
 					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
 				}: *mac,
 			},
+		},
+		"many defective macaroons": {
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AGIAJEemVQUTEyNCR0exk7ek90Cg==",
+			expectedError:   fmt.Errorf("index 1: %w", base64.CorruptInputError(28)),
 		},
 		"many macaroons": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
@@ -105,21 +115,17 @@ func TestUnmarshalMacaroons(t *testing.T) {
 				}: *mac,
 			},
 		},
-		"many defective macaroons": {
-			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AGIAJEemVQUTEyNCR0exk7ek90Cg==",
-			expectedError:   errors.New("illegal base64 data at input byte 28: index: 1"),
-		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			macaroons, err := UnmarshalMacaroons(test.macaroonsBase64)
 
-			if !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
+			if (err == nil && test.expectedError != nil) || !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
 				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
 			}
 
-			if test.expectedError == nil && !reflect.DeepEqual(macaroons, test.expectedMacaroons) {
+			if !reflect.DeepEqual(macaroons, test.expectedMacaroons) {
 				t.Errorf("expected: %v but got: %v", test.expectedMacaroons, macaroons)
 			}
 		})
@@ -168,7 +174,7 @@ func TestMarchalIdentifier(t *testing.T) {
 			macaroonID, err := MarchalIdentifier(identifier)
 
 			if !errors.Is(err, test.expectedErr) {
-				t.Errorf("expected: %v but got: %v", test.expectedErr, err)
+				t.Fatalf("expected: %v but got: %v", test.expectedErr, err)
 			}
 
 			if !bytes.Equal(macaroonID, test.expectedMacaroonId) {

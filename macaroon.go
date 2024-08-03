@@ -26,43 +26,41 @@ type Identifier struct {
 	Id          ID
 }
 
-func UnmarshalMacaroon(macaroonBase64 string) (macaroon.Macaroon, Identifier, error) {
+func UnmarshalMacaroon(macaroonBase64 string) (Identifier, macaroon.Macaroon, error) {
 	macaroonBytes, err := base64.StdEncoding.DecodeString(macaroonBase64)
 	if err != nil {
-		return macaroon.Macaroon{}, Identifier{}, err
+		return Identifier{}, macaroon.Macaroon{}, err
 	}
 
 	macaroon := macaroon.Macaroon{}
 	if err := macaroon.UnmarshalBinary(macaroonBytes); err != nil {
-		return macaroon, Identifier{}, err
+		return Identifier{}, macaroon, err
 	}
 
 	identifier, err := UnmarshalIdentifier(macaroon.Id())
-
-	return macaroon, identifier, err
+	return identifier, macaroon, err
 }
 
 func UnmarshalMacaroons(macaroonsBase64 string) (map[Identifier]macaroon.Macaroon, error) {
-	splitMacaroonBase64 := strings.Split(macaroonsBase64, ",")
-	macaroonCount := len(splitMacaroonBase64)
-
-	switch macaroonCount {
-	case 1:
+	// Optimistically expect only one macaroon
+	identifier, mac, err := UnmarshalMacaroon(macaroonsBase64)
+	if err == nil {
 		macaroons := make(map[Identifier]macaroon.Macaroon, 1)
-		macaroon, identifier, err := UnmarshalMacaroon(splitMacaroonBase64[0])
-		macaroons[identifier] = macaroon
-		return macaroons, err
-	default:
-		macaroons := make(map[Identifier]macaroon.Macaroon, macaroonCount)
-		for i, macaroonBase64 := range splitMacaroonBase64 {
-			macaroon, identifier, err := UnmarshalMacaroon(macaroonBase64)
-			if err != nil {
-				return nil, fmt.Errorf("%w: index: %d", err, i)
-			}
-			macaroons[identifier] = macaroon
-		}
+		macaroons[identifier] = mac
 		return macaroons, nil
+	} else if _, inputError := err.(base64.CorruptInputError); !inputError {
+		return nil, err
 	}
+
+	macaroons := make(map[Identifier]macaroon.Macaroon)
+	for i, macaroonBase64 := range strings.Split(macaroonsBase64, ",") {
+		identifier, macaroon, err := UnmarshalMacaroon(macaroonBase64)
+		if err != nil {
+			return nil, fmt.Errorf("index %d: %w", i, err)
+		}
+		macaroons[identifier] = macaroon
+	}
+	return macaroons, nil
 }
 
 func MarshalMacaroon(macaroon macaroon.Macaroon) (string, error) {
@@ -83,7 +81,7 @@ func MarshalMacaroons(macaroons []macaroon.Macaroon) (string, error) {
 		var macaroonsBase64 string
 		for i, macaroon := range macaroons {
 			if macaroonBase64, err := MarshalMacaroon(macaroon); err != nil {
-				return "", fmt.Errorf("%w: index: %d", err, i)
+				return "", fmt.Errorf("index %d: %w", i, err)
 			} else {
 				macaroonsBase64 += "," + macaroonBase64
 			}
