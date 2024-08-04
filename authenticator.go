@@ -19,7 +19,7 @@ type authenticator struct {
 	errorHandler   http.Handler
 }
 
-func Authenticator(minter MacaroonMinter, errorHandler http.Handler) authenticator {
+func Authenticator(minter MacaroonMinter, errorHandler http.Handler) http.Handler {
 	return authenticator{
 		macaroonMinter: minter,
 		errorHandler:   errorHandler,

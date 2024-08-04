@@ -92,7 +92,7 @@ func TestUnmarshalMacaroons(t *testing.T) {
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
 				}: *mac,
 			},
 		},
@@ -106,12 +106,12 @@ func TestUnmarshalMacaroons(t *testing.T) {
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
 				}: *mac,
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					Id:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
+					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
 				}: *mac,
 			},
 		},
@@ -168,7 +168,7 @@ func TestMarchalIdentifier(t *testing.T) {
 			identifier := Identifier{
 				Version:     test.version,
 				PaymentHash: test.paymentHash,
-				Id:          test.id,
+				ID:          test.id,
 			}
 
 			macaroonID, err := MarchalIdentifier(identifier)
@@ -255,8 +255,8 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				t.Errorf("expected: %s but got: %s", test.expectedPaymentHash, identifier.PaymentHash)
 			}
 
-			if identifier.Id != test.expectedId {
-				t.Errorf("expected:: %s but got: %s", test.expectedId, identifier.Id)
+			if identifier.ID != test.expectedId {
+				t.Errorf("expected:: %s but got: %s", test.expectedId, identifier.ID)
 			}
 		})
 	}

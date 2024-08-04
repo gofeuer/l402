@@ -21,9 +21,7 @@ type proxy struct {
 	errorHandler    http.Handler
 }
 
-type middleware func(http.Handler) http.Handler
-
-func Proxy(minter MacaroonMinter, authority AccessAuthority, options ...option) middleware {
+func Proxy(minter MacaroonMinter, authority AccessAuthority, options ...option) func(http.Handler) http.Handler {
 	p := proxy{
 		accessAuthority: authority,
 		errorHandler:    http.HandlerFunc(DefaultErrorHandler),
@@ -47,13 +45,13 @@ func Proxy(minter MacaroonMinter, authority AccessAuthority, options ...option) 
 
 type option func(*proxy)
 
-func WithAuthenticator(authenticator http.Handler) option {
+func WithAuthenticator(authenticator http.Handler) option { //nolint:revive
 	return func(p *proxy) {
 		p.authenticator = authenticator
 	}
 }
 
-func WithErrorHandler(errorrHandler http.Handler) option {
+func WithErrorHandler(errorrHandler http.Handler) option { //nolint:revive
 	return func(p *proxy) {
 		p.errorHandler = errorrHandler
 	}

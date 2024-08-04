@@ -1,0 +1,16 @@
+run:
+  tests: false
+  
+linters:
+  enable-all: true
+  disable:
+    - wsl
+    - varnamelen
+    - nlreturn
+    - inamedparam
+    - gochecknoglobals
+    - exhaustruct
+    - wrapcheck
+    - errorlint
+    - gomnd
+    - execinquery
