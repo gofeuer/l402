@@ -14,7 +14,7 @@ import (
 func TestAuthenticator_ServeHTTP(t *testing.T) {
 	tests := map[string]struct {
 		rejection                      error
-		mintWithInvoice                func(r *http.Request) (string, string, error)
+		mintWithChallenge              func(*http.Request) (string, Challenge, error)
 		expectedError                  spyHandler
 		expectedHeaderAuthenticate     string
 		expectedHeaderAuthenticateInfo string
@@ -22,8 +22,8 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 		expectedResponseStatus         int
 	}{
 		"failed minting": {
-			mintWithInvoice: func(r *http.Request) (string, string, error) {
-				return "", "", errors.New("some error")
+			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
+				return "", nil, errors.New("some error")
 			},
 			expectedError: spyHandler{
 				called:          true,
@@ -34,8 +34,8 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 		},
 		"unrecoverable rejection": {
 			rejection: errors.New("some unrecoverable error"),
-			mintWithInvoice: func(r *http.Request) (string, string, error) {
-				return "macaroonBase64", "invoice", nil
+			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
+				return "macaroonBase64", Invoice("invoice"), nil
 			},
 			expectedHeaderAuthenticate: `L402 macaroon="macaroonBase64", invoice="invoice"`,
 			expectedResponse:           `some unrecoverable error`,
@@ -43,8 +43,8 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 		},
 		"recoverable rejection": {
 			rejection: fakeRecoverableRejection(`rocovery="tier-upgrade" minimum-tier="premium-plus"`),
-			mintWithInvoice: func(r *http.Request) (string, string, error) {
-				return "macaroonBase64", "invoice", nil
+			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
+				return "macaroonBase64", Invoice("invoice"), nil
 			},
 			expectedHeaderAuthenticate:     `L402 macaroon="macaroonBase64", invoice="invoice"`,
 			expectedHeaderAuthenticateInfo: `rocovery="tier-upgrade" minimum-tier="premium-plus"`,
@@ -52,8 +52,8 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 			expectedResponseStatus:         http.StatusPaymentRequired,
 		},
 		"simple payment required": {
-			mintWithInvoice: func(r *http.Request) (string, string, error) {
-				return "macaroonBase64", "invoice", nil
+			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
+				return "macaroonBase64", Invoice("invoice"), nil
 			},
 			expectedHeaderAuthenticate: `L402 macaroon="macaroonBase64", invoice="invoice"`,
 			expectedResponse:           `payment required`,
@@ -63,7 +63,7 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			minter := mockMinter{test.mintWithInvoice}
+			minter := mockMinter{test.mintWithChallenge}
 			errorHandler := spyHandler{replyStatusCode: test.expectedError.replyStatusCode}
 			w := httptest.NewRecorder()
 			r := httptest.NewRequest("GET", "/some_proctected_resource", nil)
@@ -107,11 +107,11 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 }
 
 type mockMinter struct {
-	mintWithInvoice func(*http.Request) (string, string, error)
+	mintWithChallenge func(*http.Request) (string, Challenge, error)
 }
 
-func (m mockMinter) MintWithInvoice(r *http.Request) (string, string, error) {
-	return m.mintWithInvoice(r)
+func (m mockMinter) MintWithChallenge(r *http.Request) (string, Challenge, error) {
+	return m.mintWithChallenge(r)
 }
 
 type spyHandler struct {

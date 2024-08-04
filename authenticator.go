@@ -10,8 +10,8 @@ import (
 type Rejection error
 
 type RecoverableRejection interface {
+	Rejection
 	AdviseRecovery(http.Header)
-	error
 }
 
 type authenticator struct {
@@ -29,7 +29,7 @@ func Authenticator(minter MacaroonMinter, errorHandler http.Handler) authenticat
 func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var recoverableRejection RecoverableRejection
 
-	macaroonBase64, invoice, err := a.macaroonMinter.MintWithInvoice(r)
+	macaroonBase64, challenge, err := a.macaroonMinter.MintWithChallenge(r)
 	if err != nil {
 		ctx, cancelCause := context.WithCancelCause(r.Context())
 		cancelCause(fmt.Errorf("%w: %w", ErrFailedMacaroonMinting, err))
@@ -49,7 +49,16 @@ func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rejection = ErrPaymentRequired
 	}
 
-	// TODO: Maybe support BOLT 12/LNURL: L402 macaroon="%s", offer="%s"
-	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`L402 macaroon="%s", invoice="%s"`, macaroonBase64, invoice))
+	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`L402 macaroon="%s", %s`, macaroonBase64, challenge))
 	http.Error(w, rejection.Error(), http.StatusPaymentRequired)
+}
+
+type Challenge interface {
+	String() string
+}
+
+type Invoice string
+
+func (i Invoice) String() string {
+	return fmt.Sprintf(`invoice="%s"`, string(i))
 }

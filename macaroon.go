@@ -43,8 +43,7 @@ func UnmarshalMacaroon(macaroonBase64 string) (Identifier, macaroon.Macaroon, er
 
 func UnmarshalMacaroons(macaroonsBase64 string) (map[Identifier]macaroon.Macaroon, error) {
 	// Optimistically expect only one macaroon
-	identifier, mac, err := UnmarshalMacaroon(macaroonsBase64)
-	if err == nil {
+	if identifier, mac, err := UnmarshalMacaroon(macaroonsBase64); err == nil {
 		macaroons := make(map[Identifier]macaroon.Macaroon, 1)
 		macaroons[identifier] = mac
 		return macaroons, nil

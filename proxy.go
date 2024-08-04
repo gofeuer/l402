@@ -7,7 +7,7 @@ import (
 )
 
 type MacaroonMinter interface {
-	MintWithInvoice(*http.Request) (string, string, error)
+	MintWithChallenge(*http.Request) (string, Challenge, error)
 }
 
 type AccessAuthority interface {
