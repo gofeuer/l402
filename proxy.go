@@ -45,13 +45,13 @@ func Proxy(minter MacaroonMinter, authority AccessAuthority, options ...option) 
 
 type option func(*proxy)
 
-func WithAuthenticator(authenticator http.Handler) option { //nolint:revive
+func WithAuthenticator(authenticator http.Handler) option {
 	return func(p *proxy) {
 		p.authenticator = authenticator
 	}
 }
 
-func WithErrorHandler(errorrHandler http.Handler) option { //nolint:revive
+func WithErrorHandler(errorrHandler http.Handler) option {
 	return func(p *proxy) {
 		p.errorHandler = errorrHandler
 	}
