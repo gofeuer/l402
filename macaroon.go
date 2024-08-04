@@ -51,6 +51,8 @@ func UnmarshalMacaroons(macaroonsBase64 string) (map[Identifier]macaroon.Macaroo
 		return nil, err
 	}
 
+	// A base64.CorruptInputError means that macaroonsBase64 likely contains commas
+	// So we try unmarshal macaroonsBase64 again expecting it to have multiple macaroons
 	macaroons := make(map[Identifier]macaroon.Macaroon)
 	for i, macaroonBase64 := range strings.Split(macaroonsBase64, ",") {
 		identifier, macaroon, err := UnmarshalMacaroon(macaroonBase64)
