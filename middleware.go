@@ -72,7 +72,7 @@ func getL402AuthorizationHeader(r *http.Request) (string, string, bool) {
 	return "", "", false
 }
 
-func validatePreimage(macaroons map[Identifier]macaroon.Macaroon, preimageHex string) bool {
+func validatePreimage(macaroons map[Identifier]*macaroon.Macaroon, preimageHex string) bool {
 	var preimageHash Hash
 	// preimageHex is guaranteed by authorizationMatcher to be [a-f0-9]{sha256.Size * 2}
 	hex.Decode(preimageHash[:], []byte(preimageHex)) //nolint:errcheck

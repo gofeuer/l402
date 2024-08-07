@@ -26,7 +26,7 @@ func TestUnmarshalMacaroons(t *testing.T) {
 
 	tests := map[string]struct {
 		macaroonsBase64   string
-		expectedMacaroons map[Identifier]macaroon.Macaroon
+		expectedMacaroons map[Identifier]*macaroon.Macaroon
 		expectedError     error
 	}{
 		"no macaroons": {
@@ -42,12 +42,12 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		},
 		"one macaroon": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
-			expectedMacaroons: map[Identifier]macaroon.Macaroon{
+			expectedMacaroons: map[Identifier]*macaroon.Macaroon{
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: *mac1,
+				}: mac1,
 			},
 		},
 		"many defective macaroons": {
@@ -56,32 +56,32 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		},
 		"many macaroons with comma": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
-			expectedMacaroons: map[Identifier]macaroon.Macaroon{
+			expectedMacaroons: map[Identifier]*macaroon.Macaroon{
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: *mac1,
+				}: mac1,
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
-				}: *mac2,
+				}: mac2,
 			},
 		},
 		"many macaroons": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
-			expectedMacaroons: map[Identifier]macaroon.Macaroon{
+			expectedMacaroons: map[Identifier]*macaroon.Macaroon{
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: *mac1,
+				}: mac1,
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
-				}: *mac2,
+				}: mac2,
 			},
 		},
 	}

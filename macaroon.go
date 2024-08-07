@@ -3,7 +3,6 @@ package l402
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -25,9 +24,9 @@ type Identifier struct {
 	ID          ID
 }
 
-func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]macaroon.Macaroon, error) {
+func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroon, error) {
 	if macaroonBase64 == "" {
-		return nil, errors.New("empty macaroon data")
+		return nil, ErrEmptyMacaroonData
 	}
 
 	macaroonBytes, err := macaroon.Base64Decode([]byte(macaroonBase64))
@@ -44,14 +43,14 @@ func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]macaroon.Macaroon
 		return nil, err
 	}
 
-	macaroonsMap := make(map[Identifier]macaroon.Macaroon, len(macaroons))
+	macaroonsMap := make(map[Identifier]*macaroon.Macaroon, len(macaroons))
 
 	for i, macaroon := range macaroons {
 		identifier, err := UnmarshalIdentifier(macaroon.Id())
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
-		macaroonsMap[identifier] = *macaroon
+		macaroonsMap[identifier] = macaroon
 	}
 	return macaroonsMap, err
 }
