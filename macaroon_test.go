@@ -4,71 +4,25 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 
 	macaroon "gopkg.in/macaroon.v2"
 )
 
-func TestMarshalMacaroons(t *testing.T) {
-	macV1, _ := macaroon.New(nil, nil, "", macaroon.V1)
-	macV2, _ := macaroon.New(nil, nil, "", macaroon.V2)
-
-	tests := map[string]struct {
-		macaroons              []macaroon.Macaroon
-		expectedMacaroonBase64 string
-		expectedError          error
-	}{
-		"no macaroons": {
-			expectedError: errors.New("can't marshal empty macaroon slice"),
-		},
-		"one macaroon": {
-			macaroons: []macaroon.Macaroon{
-				*macV1,
-			},
-			expectedMacaroonBase64: "MDAwZWxvY2F0aW9uIAowMDEwaWRlbnRpZmllciAKMDAyZnNpZ25hdHVyZSCPtT9UwdGWx8khvYJlWY9BhJu6JUG3in2Ef49M+/Oukgo=",
-		},
-		"many macaroons": {
-			macaroons: []macaroon.Macaroon{
-				*macV2,
-				*macV2,
-			},
-			expectedMacaroonBase64: "AgIAAAAGII+1P1TB0ZbHySG9gmVZj0GEm7olQbeKfYR/j0z7866S,AgIAAAAGII+1P1TB0ZbHySG9gmVZj0GEm7olQbeKfYR/j0z7866S",
-		},
-		"defective macaroon": {
-			macaroons: []macaroon.Macaroon{
-				*macV1,
-				*macV2,
-				{},
-				*macV2,
-			},
-			expectedError: errors.New("index 2: bad macaroon version v0"),
-		},
-	}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			macaroonBase64, err := MarshalMacaroons(test.macaroons)
-
-			if !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
-				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
-			}
-
-			if macaroonBase64 != test.expectedMacaroonBase64 {
-				t.Errorf("expected: %v but got: %v", test.expectedMacaroonBase64, macaroonBase64)
-			}
-		})
-	}
-}
-
 func TestUnmarshalMacaroons(t *testing.T) {
-	mac, _ := macaroon.New([]byte{1}, []byte{
+	mac1, _ := macaroon.New([]byte{1}, []byte{
 		0, 0, // Version
 		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 		3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4}, "", macaroon.V2)
+	mac2, _ := macaroon.New([]byte{1}, []byte{
+		0, 0, // Version
+		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+		3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}, "", macaroon.V2)
 
 	tests := map[string]struct {
 		macaroonsBase64   string
@@ -93,26 +47,41 @@ func TestUnmarshalMacaroons(t *testing.T) {
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: *mac,
+				}: *mac1,
 			},
 		},
 		"many defective macaroons": {
-			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AGIAJEemVQUTEyNCR0exk7ek90Cg==",
-			expectedError:   fmt.Errorf("index 1: %w", base64.CorruptInputError(28)),
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAA",
+			expectedError:   errors.New("cannot unmarshal macaroon: unmarshal v2: field data extends past end of buffer"),
 		},
-		"many macaroons": {
-			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
+		"many macaroons with comma": {
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
 			expectedMacaroons: map[Identifier]macaroon.Macaroon{
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: *mac,
+				}: *mac1,
+				{
+					Version:     0,
+					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
+				}: *mac2,
+			},
+		},
+		"many macaroons": {
+			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
+			expectedMacaroons: map[Identifier]macaroon.Macaroon{
 				{
 					Version:     0,
 					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
 					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: *mac,
+				}: *mac1,
+				{
+					Version:     0,
+					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
+				}: *mac2,
 			},
 		},
 	}
@@ -121,7 +90,7 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			macaroons, err := UnmarshalMacaroons(test.macaroonsBase64)
 
-			if (err == nil && test.expectedError != nil) || !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
+			if !((err == nil) == (test.expectedError == nil)) || !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
 				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
 			}
 

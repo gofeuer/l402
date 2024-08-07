@@ -2,7 +2,6 @@ package l402
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -26,82 +25,48 @@ type Identifier struct {
 	ID          ID
 }
 
-func UnmarshalMacaroon(macaroonBase64 string) (Identifier, macaroon.Macaroon, error) {
-	macaroonBytes, err := base64.StdEncoding.DecodeString(macaroonBase64)
+func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]macaroon.Macaroon, error) {
+	if macaroonBase64 == "" {
+		return nil, errors.New("empty macaroon data")
+	}
+
+	macaroonBytes, err := macaroon.Base64Decode([]byte(macaroonBase64))
 	if err != nil {
-		return Identifier{}, macaroon.Macaroon{}, err
+		// The macaroons might be separated by commas, so we strip them and try again
+		macaroonBase64 = strings.ReplaceAll(macaroonBase64, ",", "")
+		if macaroonBytes, err = macaroon.Base64Decode([]byte(macaroonBase64)); err != nil {
+			return nil, err
+		}
 	}
 
-	macaroon := macaroon.Macaroon{}
-	if err := macaroon.UnmarshalBinary(macaroonBytes); err != nil {
-		return Identifier{}, macaroon, err
-	}
-
-	identifier, err := UnmarshalIdentifier(macaroon.Id())
-	return identifier, macaroon, err
-}
-
-func UnmarshalMacaroons(macaroonsBase64 string) (map[Identifier]macaroon.Macaroon, error) {
-	// Optimistically expect only one macaroon
-	if identifier, mac, err := UnmarshalMacaroon(macaroonsBase64); err == nil {
-		macaroons := make(map[Identifier]macaroon.Macaroon, 1)
-		macaroons[identifier] = mac
-		return macaroons, nil
-	} else if _, isInputError := err.(base64.CorruptInputError); !isInputError {
+	macaroons := make(macaroon.Slice, 0, 1)
+	if err := macaroons.UnmarshalBinary(macaroonBytes); err != nil {
 		return nil, err
 	}
 
-	// A base64.CorruptInputError means that macaroonsBase64 likely contains commas
-	// So we try unmarshal macaroonsBase64 again expecting it to have multiple macaroons
-	macaroons := make(map[Identifier]macaroon.Macaroon)
-	for i, macaroonBase64 := range strings.Split(macaroonsBase64, ",") {
-		identifier, macaroon, err := UnmarshalMacaroon(macaroonBase64)
+	macaroonsMap := make(map[Identifier]macaroon.Macaroon, len(macaroons))
+
+	for i, macaroon := range macaroons {
+		identifier, err := UnmarshalIdentifier(macaroon.Id())
 		if err != nil {
 			return nil, fmt.Errorf("index %d: %w", i, err)
 		}
-		macaroons[identifier] = macaroon
+		macaroonsMap[identifier] = *macaroon
 	}
-	return macaroons, nil
-}
-
-func MarshalMacaroon(macaroon macaroon.Macaroon) (string, error) {
-	encodedMacaroon, err := macaroon.MarshalBinary()
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(encodedMacaroon), nil
-}
-
-func MarshalMacaroons(macaroons []macaroon.Macaroon) (string, error) {
-	switch len(macaroons) {
-	case 0:
-		return "", errors.New("can't marshal empty macaroon slice") //nolint:err113
-	case 1:
-		return MarshalMacaroon(macaroons[0])
-	default:
-		var macaroonsBase64 string
-		for i, macaroon := range macaroons {
-			macaroonBase64, err := MarshalMacaroon(macaroon)
-			if err != nil {
-				return "", fmt.Errorf("index %d: %w", i, err)
-			}
-			macaroonsBase64 += "," + macaroonBase64
-		}
-		return macaroonsBase64[1:], nil
-	}
+	return macaroonsMap, err
 }
 
 var byteOrder = binary.BigEndian
 
 var (
 	macaroonIDSize    = int(reflect.TypeFor[Identifier]().Size())
-	versionOffet      = int(reflect.TypeFor[uint16]().Size())
-	paymentHashOffset = int(reflect.TypeFor[Hash]().Size())
+	versionOffet      = reflect.TypeFor[uint16]().Size()
+	paymentHashOffset = reflect.TypeFor[Hash]().Size()
 )
 
 func MarchalIdentifier(identifier Identifier) ([]byte, error) {
 	if identifier.Version != 0 {
-		return nil, fmt.Errorf("%w: %v", ErrUnknownVersion, identifier.Version)
+		return nil, fmt.Errorf("%w: %d", ErrUnknownVersion, identifier.Version)
 	}
 
 	macaroonID := make([]byte, macaroonIDSize)
@@ -118,9 +83,8 @@ func MarchalIdentifier(identifier Identifier) ([]byte, error) {
 func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 	if len(identifierBytes) != macaroonIDSize {
 		return Identifier{}, ErrUnknownVersion
-	}
-	if version := byteOrder.Uint16(identifierBytes); version != 0 {
-		return Identifier{}, fmt.Errorf("%w: %v", ErrUnknownVersion, version)
+	} else if version := byteOrder.Uint16(identifierBytes); version != 0 {
+		return Identifier{}, fmt.Errorf("%w: %d", ErrUnknownVersion, version)
 	}
 
 	var identifier Identifier
