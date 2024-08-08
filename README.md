@@ -40,11 +40,11 @@ func main() {
 
 - **Macaroons for Authorization:** We’ve baked in macaroons! These delightful authorization tokens allow you to package attributes and capabilities alongside your payment request. Dynamic pricing? Check. Automated tier upgrades? Absolutely.
 
-- **Lightning Network Magic:** L402 dances with the Lightning Network. Users pay for services over Lightning, and in return, they receive preimages—cryptographic keys that unlock access. It’s like a secret handshake, but with satoshis.
+- **Lightning Network Magic:** L402 dances with the Lightning Network. Users pay for services over Lightning, and in return, they receive preimages-cryptographic keys that unlock access. It’s like a secret handshake, but with satoshis.
 
 ## Components
 
-To use L402 Core you need to provide the `l402.Proxy(...)` middleware a couple of components:
+To use L402 Core you need to provide the L402 middleware a couple of components:
 
 ### An implementation of `l402.MacaroonMinter`
 
@@ -73,7 +73,7 @@ func (m YourMacaroonMinter) MintWithChallenge(r *http.Request) (string, l402.Cha
 
 	macaroonsBase64, _ := l402.MarshalMacaroons(mac) // Accepts multiple macaroons
 
-	// Provide an invoice from your lighting node that reveals the secret matching paymentHash
+	// Provide an invoice from your Lighting node that reveals the secret matching paymentHash
 	challenge := l402.Invoice("lnbc20m1pvjluezpp5q...")
 
 	return macaroonsBase64, challenge, nil
@@ -82,7 +82,7 @@ func (m YourMacaroonMinter) MintWithChallenge(r *http.Request) (string, l402.Cha
 
 ### An implementation of `l402.AccessAuthority`
 
-The L402 Proxy Middleware uses the access authority to determine if a request should be proxied.
+The L402 middleware uses the access authority to determine if a request should be proxied.
 
 ```go
 type YourAccessAuthority struct {
@@ -91,7 +91,7 @@ type YourAccessAuthority struct {
 
 func (m YourAccessAuthority) ApproveAccess(r *http.Request, macaroons map[l402.Identifier]*macaroon.Macaroon) l402.Rejection {
 	for identifier, macaroon := range macaroons {
-		// Verify if macaroon is singed by the correct rootKey
+		// Verify if macaroon is signed by the correct rootKey
 	}
 
 	// Here you should determine if the received macarons give access to the resouce requested by: (r *http.Request)
