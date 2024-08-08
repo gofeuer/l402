@@ -12,8 +12,6 @@ var (
 	ErrFailedInvoiceRequest  = errors.New("failed invoice request")
 	ErrFailedMacaroonMinting = errors.New("failed macaroon minting")
 	ErrPaymentRequired       = errors.New("payment required")
-	ErrUnknownVersion        = errors.New("unknown L402 version")
-	ErrEmptyMacaroonData     = errors.New("empty macaroon data")
 )
 
 func DefaultErrorHandler(w http.ResponseWriter, r *http.Request) {

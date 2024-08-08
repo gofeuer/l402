@@ -29,8 +29,10 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		expectedMacaroons map[Identifier]*macaroon.Macaroon
 		expectedError     error
 	}{
-		"no macaroons": {
-			expectedError: errors.New("empty macaroon data"),
+		"no macaroons": { // macaroonsBase64 is guaranteed by authorizationMatcher to be a non empty string
+			macaroonsBase64:   "",
+			expectedMacaroons: map[Identifier]*macaroon.Macaroon{},
+			expectedError:     nil,
 		},
 		"defective macaroon": {
 			macaroonsBase64: "AGIAJEemVQUTEyNCR0exk7ek90Cg==",
@@ -38,7 +40,7 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		},
 		"one invalid macaroon": {
 			macaroonsBase64: "MDAwZWxvY2F0aW9uIAowMDEwaWRlbnRpZmllciAKMDAyZnNpZ25hdHVyZSCPtT9UwdGWx8khvYJlWY9BhJu6JUG3in2Ef49M+/Oukgo=",
-			expectedError:   ErrUnknownVersion,
+			expectedError:   ErrUnknownVersion(-1),
 		},
 		"one macaroon": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
@@ -111,7 +113,7 @@ func TestMarchalIdentifier(t *testing.T) {
 	}{
 		"invalid version": {
 			version:     1,
-			expectedErr: ErrUnknownVersion,
+			expectedErr: ErrUnknownVersion(1),
 		},
 		"success": {
 			paymentHash: [BlockSize]byte{
@@ -162,7 +164,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 	}{
 		"empty value": {
 			macaroonID:  []byte{},
-			expectedErr: ErrUnknownVersion,
+			expectedErr: ErrUnknownVersion(-1),
 		},
 		"malformed truncated value": {
 			macaroonID: []byte{
@@ -170,7 +172,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			expectedErr: ErrUnknownVersion,
+			expectedErr: ErrUnknownVersion(-1),
 		},
 		"malformed extended value": {
 			macaroonID: []byte{
@@ -181,7 +183,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 				0, 5,
 			},
-			expectedErr: ErrUnknownVersion,
+			expectedErr: ErrUnknownVersion(-1),
 		},
 		"wrong version": {
 			macaroonID: []byte{
@@ -191,7 +193,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
-			expectedErr: ErrUnknownVersion,
+			expectedErr: ErrUnknownVersion(2),
 		},
 		"success": {
 			macaroonID: []byte{

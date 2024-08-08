@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	macaroon "gopkg.in/macaroon.v2"
@@ -25,10 +26,6 @@ type Identifier struct {
 }
 
 func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroon, error) {
-	if macaroonBase64 == "" {
-		return nil, ErrEmptyMacaroonData
-	}
-
 	macaroonBytes, err := macaroon.Base64Decode([]byte(macaroonBase64))
 	if err != nil {
 		// The macaroons might be separated by commas, so we strip them and try again
@@ -52,6 +49,7 @@ func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroo
 		}
 		macaroonsMap[identifier] = macaroon
 	}
+
 	return macaroonsMap, err
 }
 
@@ -65,7 +63,7 @@ var (
 
 func MarchalIdentifier(identifier Identifier) ([]byte, error) {
 	if identifier.Version != 0 {
-		return nil, fmt.Errorf("%w: %d", ErrUnknownVersion, identifier.Version)
+		return nil, ErrUnknownVersion(identifier.Version)
 	}
 
 	macaroonID := make([]byte, macaroonIDSize)
@@ -81,9 +79,9 @@ func MarchalIdentifier(identifier Identifier) ([]byte, error) {
 
 func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 	if len(identifierBytes) != macaroonIDSize {
-		return Identifier{}, ErrUnknownVersion
+		return Identifier{}, ErrUnknownVersion(-1)
 	} else if version := byteOrder.Uint16(identifierBytes); version != 0 {
-		return Identifier{}, fmt.Errorf("%w: %d", ErrUnknownVersion, version)
+		return Identifier{}, ErrUnknownVersion(version)
 	}
 
 	var identifier Identifier
@@ -95,4 +93,10 @@ func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 	copy(identifier.ID[:], identifierBytes[offset:])
 
 	return identifier, nil
+}
+
+type ErrUnknownVersion int64 //nolint:errname
+
+func (e ErrUnknownVersion) Error() string {
+	return "unknown L402 version: " + strconv.FormatInt(int64(e), 10)
 }

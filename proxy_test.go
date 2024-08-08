@@ -1,6 +1,8 @@
 package l402
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -109,19 +111,34 @@ func TestGetL402AuthorizationHeader(t *testing.T) {
 		expectedPreimage string
 		expectedFound    bool
 	}{
-		"success": {
-			headerValue:      "L402 AGIAJEemVQUTEyNCR0exk7ek90Cg==:79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
-			expectedMacaroon: "AGIAJEemVQUTEyNCR0exk7ek90Cg==",
-			expectedPreimage: "79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
-			expectedFound:    true,
-		},
-		"invalid 402": {
-			headerValue:   "L402 AGIAJEemVQUTEyNCR0exk7ek90Cg==",
+		"nou auth": {
 			expectedFound: false,
 		},
 		"other auth": {
 			headerValue:   "Basic AGIAJEemVQUTEa0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
 			expectedFound: false,
+		},
+		"invalid 402": {
+			headerValue:   "L402 :79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
+			expectedFound: false,
+		},
+		"invalid 402 space": {
+			headerValue:   "L402  :79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
+			expectedFound: false,
+		},
+		"invalid 402 string space": {
+			headerValue:   "L402 abc d:79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
+			expectedFound: false,
+		},
+		"invalid 402 preimage": {
+			headerValue:   "L402 AGIAJEemVQUTEyNCR0exk7ek90Cg==:79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad8121740",
+			expectedFound: false,
+		},
+		"success": {
+			headerValue:      "L402 AGIAJEemVQUTEyNCR0exk7ek90Cg==:79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
+			expectedMacaroon: "AGIAJEemVQUTEyNCR0exk7ek90Cg==",
+			expectedPreimage: "79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
+			expectedFound:    true,
 		},
 	}
 
@@ -130,18 +147,24 @@ func TestGetL402AuthorizationHeader(t *testing.T) {
 			r := http.Request{Header: make(http.Header)}
 			r.Header.Set("Authorization", test.headerValue)
 
-			macaroonBase64, preimageHex, found := getL402AuthorizationHeader(&r)
+			macaroonBase64, preimageHash, found := getL402AuthorizationHeader(&r)
+
+			if found != test.expectedFound {
+				t.Fatalf("expected: %v but got: %v", test.expectedFound, found)
+			}
 
 			if macaroonBase64 != test.expectedMacaroon {
 				t.Errorf("expected: %s but got: %s", test.expectedMacaroon, macaroonBase64)
 			}
 
-			if preimageHex != test.expectedPreimage {
-				t.Errorf("expected: %s but got: %s", test.expectedPreimage, preimageHex)
+			var expectedPreimageHash Hash
+			if test.expectedPreimage != "" {
+				hex.Decode(expectedPreimageHash[:], []byte(test.expectedPreimage))
+				expectedPreimageHash = sha256.Sum256(expectedPreimageHash[:])
 			}
 
-			if found != test.expectedFound {
-				t.Errorf("expected: %v but got: %v", test.expectedFound, found)
+			if preimageHash != expectedPreimageHash {
+				t.Errorf("expected: %v but got: %v", preimageHash, expectedPreimageHash)
 			}
 		})
 	}
@@ -149,15 +172,21 @@ func TestGetL402AuthorizationHeader(t *testing.T) {
 
 func TestValidatePreimage(t *testing.T) {
 	tests := map[string]struct {
-		preimageHex    string
+		preimageHash   Hash
 		expectedResult bool
 	}{
 		"valid preimage": {
-			preimageHex:    "79852a0791225dee00be0a6cf31a1619782c21d35995e118bfc74ad812174035",
+			preimageHash: Hash{
+				166, 18, 134, 107, 7, 192, 14, 53, 235, 54, 169, 100, 101, 177, 74, 170,
+				6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 56, 21,
+			},
 			expectedResult: true,
 		},
 		"invalid preimage": {
-			preimageHex:    "invalidpreimagehex",
+			preimageHash: Hash{
+				1, 8, 134, 107, 7, 192, 14, 53, 235, 54, 169, 100, 101, 177, 74, 10,
+				6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 6, 20,
+			},
 			expectedResult: false,
 		},
 	}
@@ -167,12 +196,13 @@ func TestValidatePreimage(t *testing.T) {
 		6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 56, 21,
 	}
 
-	macaroons := make(map[Identifier]*macaroon.Macaroon, 1)
-	macaroons[Identifier{PaymentHash: paymentHash}] = &macaroon.Macaroon{}
+	macaroons := make(map[Identifier]*macaroon.Macaroon)
+	macaroons[Identifier{ID: ID{1}, PaymentHash: paymentHash}] = &macaroon.Macaroon{}
+	macaroons[Identifier{ID: ID{2}, PaymentHash: paymentHash}] = &macaroon.Macaroon{}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			valid := validatePreimage(macaroons, test.preimageHex)
+			valid := validatePreimage(macaroons, test.preimageHash)
 
 			if valid != test.expectedResult {
 				t.Errorf("expected: %v but got: %v", test.expectedResult, valid)
