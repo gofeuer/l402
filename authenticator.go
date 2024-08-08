@@ -14,6 +14,16 @@ type RecoverableRejection interface {
 	AdviseRecovery(http.Header)
 }
 
+type Challenge interface {
+	String() string
+}
+
+type Invoice string
+
+func (i Invoice) String() string {
+	return fmt.Sprintf(`invoice="%s"`, string(i))
+}
+
 type authenticator struct {
 	macaroonMinter MacaroonMinter
 	errorHandler   http.Handler
@@ -27,8 +37,7 @@ func Authenticator(minter MacaroonMinter, errorHandler http.Handler) authenticat
 }
 
 func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var recoverableRejection RecoverableRejection
-
+	// Ask the minter to give us a macaroon and a challenge (a lightning invoice)
 	macaroonBase64, challenge, err := a.macaroonMinter.MintWithChallenge(r)
 	if err != nil {
 		ctx, cancelCause := context.WithCancelCause(r.Context())
@@ -38,7 +47,7 @@ func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rejection := context.Cause(r.Context())
-
+	var recoverableRejection RecoverableRejection
 	if errors.As(rejection, &recoverableRejection) {
 		// Rejecting access to an API resource triggers a re-authentication opportunity
 		// The rejection way be reverted without the need for a new payment
@@ -51,14 +60,4 @@ func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("WWW-Authenticate", fmt.Sprintf(`L402 macaroon="%s", %s`, macaroonBase64, challenge))
 	http.Error(w, rejection.Error(), http.StatusPaymentRequired)
-}
-
-type Challenge interface {
-	String() string
-}
-
-type Invoice string
-
-func (i Invoice) String() string {
-	return fmt.Sprintf(`invoice="%s"`, string(i))
 }
