@@ -2,6 +2,7 @@ package l402
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"reflect"
@@ -23,6 +24,15 @@ type Identifier struct {
 	Version     uint16
 	PaymentHash Hash
 	ID          ID
+}
+
+func MarshalMacaroons(macaroons ...*macaroon.Macaroon) (string, error) {
+	var macaroonBase64 string
+
+	macaroonBytes, err := macaroon.Slice(macaroons).MarshalBinary()
+	base64.StdEncoding.Encode([]byte(macaroonBase64), macaroonBytes)
+
+	return macaroonBase64, err
 }
 
 func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroon, error) {
