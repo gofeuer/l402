@@ -48,7 +48,7 @@ To use L402 Core you need to provide the L402 middleware a couple of components:
 
 ### An implementation of `l402.MacaroonMinter`
 
-The minter is used by the authorization handler to provide the user a new set of macaroons and an invoice.
+The minter is used by the authentication handler to provide the user a new set of macaroons and an invoice.
 
 ```go
 type YourMacaroonMinter struct {
@@ -66,7 +66,7 @@ func (m YourMacaroonMinter) MintWithChallenge(r *http.Request) (string, l402.Cha
 		ID:          id,          // An unique ID assigned to this macaroon
 	})
 
-	rootKey := []byte("{secret_key}") // A secret key that is used to singn and verify your macaroons
+	rootKey := []byte("{secret_key}") // A secret key that is used to sign and verify your macaroons
 
 	// Create a macaroon that when paid gives access to the resouce requested by: (r *http.Request)
 	mac, _ := macaroon.New(rootKey, macaroonID, "", macaroon.LatestVersion)
