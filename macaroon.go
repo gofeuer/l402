@@ -27,11 +27,8 @@ type Identifier struct {
 }
 
 func MarshalMacaroons(macaroons ...*macaroon.Macaroon) (string, error) {
-	var macaroonBase64 string
-
 	macaroonBytes, err := macaroon.Slice(macaroons).MarshalBinary()
-	base64.StdEncoding.Encode([]byte(macaroonBase64), macaroonBytes)
-
+	macaroonBase64 := base64.StdEncoding.EncodeToString(macaroonBytes)
 	return macaroonBase64, err
 }
 

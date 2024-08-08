@@ -10,6 +10,56 @@ import (
 	macaroon "gopkg.in/macaroon.v2"
 )
 
+func TestMarshalMacaroons(t *testing.T) {
+	mac1, _ := macaroon.New([]byte{1}, []byte{
+		0, 0, // Version
+		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+		3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4}, "", macaroon.V2)
+	mac2, _ := macaroon.New([]byte{1}, []byte{
+		0, 0, // Version
+		1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
+		3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5}, "", macaroon.V2)
+
+	tests := map[string]struct {
+		macaroons              macaroon.Slice
+		expectedMacaroonBase64 string
+		expectedError          error
+	}{
+		"zero": {
+			expectedError: nil,
+		},
+		"one": {
+			macaroons:              macaroon.Slice{mac1},
+			expectedMacaroonBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
+		},
+		"many": {
+			macaroons:              macaroon.Slice{mac1, mac2},
+			expectedMacaroonBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
+		},
+		"defective": {
+			macaroons:     macaroon.Slice{mac1, {}, mac2},
+			expectedError: errors.New(`failed to marshal macaroon "": bad macaroon version v0`),
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			macaroonBase64, err := MarshalMacaroons(test.macaroons...)
+			if !((err == nil) == (test.expectedError == nil)) || !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
+				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
+			}
+
+			if macaroonBase64 != test.expectedMacaroonBase64 {
+				t.Errorf("expected: %v but got: %v", test.expectedMacaroonBase64, macaroonBase64)
+			}
+		})
+	}
+}
+
 func TestUnmarshalMacaroons(t *testing.T) {
 	mac1, _ := macaroon.New([]byte{1}, []byte{
 		0, 0, // Version
