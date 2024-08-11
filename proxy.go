@@ -106,10 +106,10 @@ func getL402AuthorizationHeader(r *http.Request) (string, Hash, bool) {
 	for _, v := range r.Header.Values("Authorization") {
 		if matches := authorizationMatcher.FindStringSubmatch(v); len(matches) == expectedMatches {
 			macaroonBase64 := matches[1]
-			preimageHex := []byte(matches[2])
+			preimageHex := matches[2]
 
 			// preimageHex is guaranteed by authorizationMatcher to be 64 hexadecimal characters
-			hex.Decode(preimageHash[:], preimageHex) //nolint:errcheck
+			hex.Decode(preimageHash[:], []byte(preimageHex)) //nolint:errcheck
 			preimageHash = sha256.Sum256(preimageHash[:])
 
 			return macaroonBase64, preimageHash, true

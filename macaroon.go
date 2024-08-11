@@ -33,11 +33,11 @@ func MarshalMacaroons(macaroons ...*macaroon.Macaroon) (string, error) {
 }
 
 func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroon, error) {
-	macaroonBytes, err := macaroon.Base64Decode([]byte(macaroonBase64))
+	macaroonBytes, err := base64.StdEncoding.DecodeString(macaroonBase64)
 	if err != nil {
 		// The macaroons might be separated by commas, so we strip them and try again
 		macaroonBase64 = strings.ReplaceAll(macaroonBase64, ",", "")
-		if macaroonBytes, err = macaroon.Base64Decode([]byte(macaroonBase64)); err != nil {
+		if macaroonBytes, err = base64.StdEncoding.DecodeString(macaroonBase64); err != nil {
 			return nil, err
 		}
 	}
