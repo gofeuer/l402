@@ -94,8 +94,10 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	hexBlockSize    = BlockSize * 2
-	expectedMatches = 3 // the header, macaroonBase64 and preimageHex
+	hexBlockSize        = BlockSize * 2
+	expectedMatches     = 3 // L402 (\S+):([a-f0-9]{64}) -> [the header, macaroonBase64, preimageHex]
+	macaroonBase64Index = 1
+	preimageHexIndex    = 2
 )
 
 var authorizationMatcher = regexp.MustCompile(fmt.Sprintf(`L402 (\S+):([a-f0-9]{%d})`, hexBlockSize))
@@ -105,8 +107,8 @@ func getL402AuthorizationHeader(r *http.Request) (string, Hash, bool) {
 
 	for _, v := range r.Header.Values("Authorization") {
 		if matches := authorizationMatcher.FindStringSubmatch(v); len(matches) == expectedMatches {
-			macaroonBase64 := matches[1]
-			preimageHex := matches[2]
+			macaroonBase64 := matches[macaroonBase64Index]
+			preimageHex := matches[preimageHexIndex]
 
 			// preimageHex is guaranteed by authorizationMatcher to be 64 hexadecimal characters
 			hex.Decode(preimageHash[:], []byte(preimageHex)) //nolint:errcheck

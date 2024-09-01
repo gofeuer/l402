@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 
 	macaroon "gopkg.in/macaroon.v2"
@@ -60,8 +59,6 @@ func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroo
 	return macaroonsMap, err
 }
 
-var byteOrder = binary.BigEndian
-
 var (
 	macaroonIDSize    = int(reflect.TypeFor[Identifier]().Size())
 	versionOffet      = reflect.TypeFor[uint16]().Size()
@@ -87,7 +84,7 @@ func MarchalIdentifier(identifier Identifier) ([]byte, error) {
 func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 	if len(identifierBytes) != macaroonIDSize {
 		return Identifier{}, ErrUnknownVersion(-1)
-	} else if version := byteOrder.Uint16(identifierBytes); version != 0 {
+	} else if version := binary.BigEndian.Uint16(identifierBytes); version != 0 {
 		return Identifier{}, ErrUnknownVersion(version)
 	}
 
@@ -102,8 +99,8 @@ func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 	return identifier, nil
 }
 
-type ErrUnknownVersion int64 //nolint:errname
+type ErrUnknownVersion int //nolint:errname
 
 func (e ErrUnknownVersion) Error() string {
-	return "unknown L402 version: " + strconv.FormatInt(int64(e), 10)
+	return fmt.Sprintf("unknown L402 version: %d", e)
 }
