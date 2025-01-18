@@ -7,18 +7,14 @@ import (
 	"net/http"
 )
 
-type Rejection error
-
 type RecoverableRejection interface {
 	Rejection
 	AdviseRecovery(http.Header)
 }
 
-type Challenge interface {
-	String() string
-}
+type challenge string
 
-type Invoice string
+type Invoice challenge
 
 func (i Invoice) String() string {
 	return fmt.Sprintf(`invoice="%s"`, string(i))
@@ -37,22 +33,21 @@ func Authenticator(minter MacaroonMinter, errorHandler http.Handler) authenticat
 }
 
 func (a authenticator) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Ask the minter to give us a macaroon and a challenge (a lightning invoice)
+	// Ask the minter to give us a macaroon and a challenge (a lightning invoice).
 	macaroonBase64, challenge, err := a.macaroonMinter.MintWithChallenge(r)
 	if err != nil {
 		ctx, cancelCause := context.WithCancelCause(r.Context())
-		cancelCause(fmt.Errorf("%w: %w", ErrFailedMacaroonMinting, err))
+		cancelCause(err)
 		a.errorHandler.ServeHTTP(w, r.WithContext(ctx))
 		return
 	}
 
+	// Check what triggered this authentication request
 	rejection := context.Cause(r.Context())
 	var recoverableRejection RecoverableRejection
 	if errors.As(rejection, &recoverableRejection) {
-		// Rejecting access to an API resource triggers a re-authentication opportunity
-		// The rejection way be reverted without the need for a new payment
-		// For that, we use the response header to advise the client on what to do
-		// Recovery can usually happen by retrying with a macaroon with less restrictive caveats
+		// Use the response header to advise the client on how retry without the need for a new payment.
+		// The client usually does that by retrying with a macaroon with less restrictive caveats.
 		recoverableRejection.AdviseRecovery(w.Header())
 	} else if rejection == nil {
 		rejection = ErrPaymentRequired

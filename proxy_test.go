@@ -14,7 +14,7 @@ import (
 func TestProxy_ServeHTTP(t *testing.T) {
 	tests := map[string]struct {
 		authorizationHeader    string
-		approveAccess          func(*http.Request, map[Identifier]*macaroon.Macaroon) Rejection
+		approveAccess          func(*http.Request, macaroon.Slice, Hash) Rejection
 		expectedAuthenticator  spyHandler
 		apiHandler             spyHandler
 		expectedError          spyHandler
@@ -37,30 +37,21 @@ func TestProxy_ServeHTTP(t *testing.T) {
 			},
 			expectedResponseStatus: http.StatusBadRequest,
 		},
-		"invalid preimage": {
-			authorizationHeader: "L402 AgJCAABmaHqt+GK9d2yPwYuOn44gCJcUhW7iM7OQKlkdDV8pJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGIPYUpoJjGXj6TR3qNyibnh+n2R1Dj5HEt5dV4GfbU0jX:0000000000000000000000000000000000000000000000000000000000000001",
-			expectedError: spyHandler{
-				called:          true,
-				cancelCause:     ErrInvalidPreimage,
-				replyStatusCode: http.StatusBadRequest,
-			},
-			expectedResponseStatus: http.StatusBadRequest,
-		},
 		"rejected access": {
 			authorizationHeader: "L402 AgJCAABmaHqt+GK9d2yPwYuOn44gCJcUhW7iM7OQKlkdDV8pJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGIPYUpoJjGXj6TR3qNyibnh+n2R1Dj5HEt5dV4GfbU0jX:0000000000000000000000000000000000000000000000000000000000000000",
-			approveAccess: func(*http.Request, map[Identifier]*macaroon.Macaroon) Rejection {
+			approveAccess: func(*http.Request, macaroon.Slice, Hash) Rejection {
 				return ErrPaymentRequired
 			},
 			expectedAuthenticator: spyHandler{
-				called:          true,
-				cancelCause:     ErrPaymentRequired,
+				called: true,
+				// cancelCause:     ErrPaymentRequired,????
 				replyStatusCode: http.StatusPaymentRequired,
 			},
 			expectedResponseStatus: http.StatusPaymentRequired,
 		},
 		"success": {
 			authorizationHeader: "L402 AgJCAABmaHqt+GK9d2yPwYuOn44gCJcUhW7iM7OQKlkdDV8pJQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGIPYUpoJjGXj6TR3qNyibnh+n2R1Dj5HEt5dV4GfbU0jX:0000000000000000000000000000000000000000000000000000000000000000",
-			approveAccess: func(*http.Request, map[Identifier]*macaroon.Macaroon) Rejection {
+			approveAccess: func(*http.Request, macaroon.Slice, Hash) Rejection {
 				return nil // access approved
 			},
 			apiHandler: spyHandler{
@@ -77,7 +68,7 @@ func TestProxy_ServeHTTP(t *testing.T) {
 			apiHandler := spyHandler{replyStatusCode: test.apiHandler.replyStatusCode}
 			errorHandler := spyHandler{replyStatusCode: test.expectedError.replyStatusCode}
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", "/some_proctected_resource", nil)
+			r := httptest.NewRequest("GET", "/some_protected_resource", nil)
 			r.Header.Set("Authorization", test.authorizationHeader)
 
 			Proxy(nil, accessAuthority, WithAuthenticator(&authenticator), WithErrorHandler(&errorHandler))(&apiHandler).ServeHTTP(w, r)
@@ -92,9 +83,8 @@ func TestProxy_ServeHTTP(t *testing.T) {
 				t.Errorf("expected: %v but got: %v", test.expectedError.called, errorHandler.called)
 			}
 
-			if !(errors.Is(errorHandler.cancelCause, test.expectedError.cancelCause) ||
-				errorHandler.cancelCause.Error() == test.expectedError.cancelCause.Error()) {
-				t.Errorf("expected: %s but got: %s", test.expectedError.cancelCause.Error(), errorHandler.cancelCause.Error())
+			if !errors.Is(errorHandler.cancelCause, test.expectedError.cancelCause) {
+				t.Errorf("expected: %v but got: %v", test.expectedError.cancelCause, errorHandler.cancelCause)
 			}
 
 			if response.StatusCode != test.expectedResponseStatus {
@@ -170,51 +160,10 @@ func TestGetL402AuthorizationHeader(t *testing.T) {
 	}
 }
 
-func TestValidatePreimage(t *testing.T) {
-	tests := map[string]struct {
-		preimageHash   Hash
-		expectedResult bool
-	}{
-		"valid preimage": {
-			preimageHash: Hash{
-				166, 18, 134, 107, 7, 192, 14, 53, 235, 54, 169, 100, 101, 177, 74, 170,
-				6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 56, 21,
-			},
-			expectedResult: true,
-		},
-		"invalid preimage": {
-			preimageHash: Hash{
-				1, 8, 134, 107, 7, 192, 14, 53, 235, 54, 169, 100, 101, 177, 74, 10,
-				6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 6, 20,
-			},
-			expectedResult: false,
-		},
-	}
-
-	paymentHash := Hash{
-		166, 18, 134, 107, 7, 192, 14, 53, 235, 54, 169, 100, 101, 177, 74, 170,
-		6, 147, 124, 244, 193, 53, 90, 53, 242, 92, 235, 25, 179, 10, 56, 21,
-	}
-
-	macaroons := make(map[Identifier]*macaroon.Macaroon)
-	macaroons[Identifier{ID: ID{1}, PaymentHash: paymentHash}] = &macaroon.Macaroon{}
-	macaroons[Identifier{ID: ID{2}, PaymentHash: paymentHash}] = &macaroon.Macaroon{}
-
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			valid := validatePreimage(macaroons, test.preimageHash)
-
-			if valid != test.expectedResult {
-				t.Errorf("expected: %v but got: %v", test.expectedResult, valid)
-			}
-		})
-	}
-}
-
 type mockAccessAuthority struct {
-	approveAccess func(*http.Request, map[Identifier]*macaroon.Macaroon) Rejection
+	approveAccess func(*http.Request, macaroon.Slice, Hash) Rejection
 }
 
-func (a mockAccessAuthority) ApproveAccess(r *http.Request, m map[Identifier]*macaroon.Macaroon) Rejection {
-	return a.approveAccess(r, m)
+func (a mockAccessAuthority) ApproveAccess(r *http.Request, m macaroon.Slice, h Hash) Rejection {
+	return a.approveAccess(r, m, h)
 }

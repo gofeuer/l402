@@ -5,7 +5,6 @@
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/gofeuer/l402/golangci-lint.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gofeuer/l402)](https://goreportcard.com/report/github.com/gofeuer/l402)
 ![Lightning Network](https://img.shields.io/badge/bitcoin-lightning_network-792EE5)
-[![Donate Bitcoin on chain](https://img.shields.io/badge/donate-bitcoin-F7931A?logo=bitcoin)](https://www.bitcoinqrcodemaker.com/pay/?type=1&style=bitcoin&address=bc1qanlngx9pfm2pkszm7lx88wp2qa6eh9juuskpl0e5a00edslhe89qtdejr0)
 
 Inspired by the HTTP 402 Payment Required status code, L402 introduces a novel approach to secure access and dynamic pricing. Whether you’re building a subscription-based platform, a content delivery service, or an API, L402 empowers you to seamlessly integrate payments using the Lightning Network.
 
@@ -19,13 +18,13 @@ A middleware to secure your endpoints.
 import "github.com/gofeuer/l402"
 
 func main() {
-	minter := YourMacaroonMinter{}      // Your l402.MacaroonMinter implementation
-	authorizer := YourAccessAuthority{} // Your l402.AccessAuthority implementation
+	minter := YourMacaroonMinter{}      // Your l402.MacaroonMinter implementation.
+	authorizer := YourAccessAuthority{} // Your l402.AccessAuthority implementation.
 
-	// Create a L402 proxy by passing a l402.MacaroonMinter and a l402.AccessAuthority
+	// Create a L402 proxy by passing a l402.MacaroonMinter and a l402.AccessAuthority.
 	proxy := l402.Proxy(minter, authorizer)
 
-	// Use `proxy` as a middleware to endpoints that require payment
+	// Use `proxy` as a middleware to endpoints that require payment.
 	http.Handle("GET /", proxy(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "premium content")
 	})))
@@ -60,20 +59,20 @@ func (m YourMacaroonMinter) MintWithChallenge(r *http.Request) (string, l402.Cha
 	var paymentHash [32]byte
 	var id [32]byte
 
-	// A l402.Identifier is encoded and used as the macaroon's ID
+	// A l402.Identifier is encoded and used as the macaroon's ID.
 	macaroonID, _ := l402.MarchalIdentifier(l402.Identifier{
-		PaymentHash: paymentHash, // Hash of the secret revealed by paying the invoice
-		ID:          id,          // An unique ID assigned to this macaroon
+		PaymentHash: paymentHash, // Hash of the secret revealed by paying the invoice.
+		ID:          id,          // An unique ID assigned to this macaroon.
 	})
 
-	rootKey := []byte("{secret_key}") // A secret key that is used to sign and verify your macaroons
+	rootKey := []byte("{secret_key}") // A secret key that is used to sign and verify your macaroons.
 
-	// Create a macaroon that when paid gives access to the resouce requested by: (r *http.Request)
+	// Create a macaroon that when paid gives access to the resource requested by: (r *http.Request)
 	mac, _ := macaroon.New(rootKey, macaroonID, "", macaroon.LatestVersion)
 
-	macaroonsBase64, _ := l402.MarshalMacaroons(mac) // Accepts multiple macaroons
+	macaroonsBase64, _ := l402.MarshalMacaroons(mac) // Accepts multiple macaroons.
 
-	// Provide an invoice from your Lighting node that reveals the secret matching paymentHash
+	// Provide an invoice from your Lighting node that reveals the secret matching paymentHash.
 	challenge := l402.Invoice("lnbc20m1pvjluezpp5q...")
 
 	return macaroonsBase64, challenge, nil
@@ -89,14 +88,16 @@ type YourAccessAuthority struct {
 	// key storage for macaroon rootKeys
 }
 
-func (m YourAccessAuthority) ApproveAccess(r *http.Request, macaroons map[l402.Identifier]*macaroon.Macaroon) l402.Rejection {
-	for identifier, macaroon := range macaroons {
-		// Verify if macaroon is signed by the correct rootKey
+func (m YourAccessAuthority) ApproveAccess(r *http.Request, macaroons macaroon.Slice, preimage Hash) l402.Rejection {
+	for _, macaroon := range macaroons {
+		identifier, err := UnmarshalIdentifier(macaroon.Id())
+		// Verify if `identifier.PaymentHash` is equal to `preimage`
+		// Verify if macaroon is signed by the correct rootKey.
 	}
 
-	// Here you should determine if the received macarons give access to the resouce requested by: (r *http.Request)
+	// Here you should determine if the received macaroons give access to the resource requested by: (r *http.Request)
 
-	// Return nil if the request is approved
+	// Return nil if the request is approved.
 	return errors.New("{rejection reason}")
 }
 ```

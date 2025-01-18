@@ -12,7 +12,6 @@ linters:
     - exhaustruct
     - wrapcheck
     - errorlint
-    - gomnd
-    - execinquery
     - revive
     - exportloopref
+    - errname

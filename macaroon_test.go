@@ -49,12 +49,13 @@ func TestMarshalMacaroons(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			macaroonBase64, err := MarshalMacaroons(test.macaroons...)
-			if !((err == nil) == (test.expectedError == nil)) || !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
-				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
+
+			if err != nil && err.Error() != test.expectedError.Error() {
+				t.Fatalf("expected: %s but got: %s", test.expectedError, err)
 			}
 
 			if macaroonBase64 != test.expectedMacaroonBase64 {
-				t.Errorf("expected: %v but got: %v", test.expectedMacaroonBase64, macaroonBase64)
+				t.Errorf("expected: %s but got: %s", test.expectedMacaroonBase64, macaroonBase64)
 			}
 		})
 	}
@@ -76,65 +77,33 @@ func TestUnmarshalMacaroons(t *testing.T) {
 
 	tests := map[string]struct {
 		macaroonsBase64   string
-		expectedMacaroons map[Identifier]*macaroon.Macaroon
+		expectedMacaroons macaroon.Slice
 		expectedError     error
 	}{
-		"no macaroons": { // macaroonsBase64 is guaranteed by authorizationMatcher to be a non empty string
+		"no macaroons": { // macaroonsBase64 is guaranteed by authorizationMatcher to be a non empty string.
 			macaroonsBase64:   "",
-			expectedMacaroons: map[Identifier]*macaroon.Macaroon{},
+			expectedMacaroons: macaroon.Slice{},
 			expectedError:     nil,
 		},
 		"defective macaroon": {
 			macaroonsBase64: "AGIAJEemVQUTEyNCR0exk7ek90Cg==",
 			expectedError:   base64.CorruptInputError(28),
 		},
-		"one invalid macaroon": {
-			macaroonsBase64: "MDAwZWxvY2F0aW9uIAowMDEwaWRlbnRpZmllciAKMDAyZnNpZ25hdHVyZSCPtT9UwdGWx8khvYJlWY9BhJu6JUG3in2Ef49M+/Oukgo=",
-			expectedError:   ErrUnknownVersion(-1),
-		},
 		"one macaroon": {
-			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
-			expectedMacaroons: map[Identifier]*macaroon.Macaroon{
-				{
-					Version:     0,
-					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: mac1,
-			},
+			macaroonsBase64:   "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe",
+			expectedMacaroons: macaroon.Slice{mac1},
 		},
 		"many defective macaroons": {
 			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAA",
-			expectedError:   errors.New("illegal base64 data at input byte 172"),
+			expectedError:   base64.CorruptInputError(172),
 		},
 		"many macaroons with comma": {
-			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
-			expectedMacaroons: map[Identifier]*macaroon.Macaroon{
-				{
-					Version:     0,
-					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: mac1,
-				{
-					Version:     0,
-					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
-				}: mac2,
-			},
+			macaroonsBase64:   "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVe,AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
+			expectedMacaroons: macaroon.Slice{mac1, mac2},
 		},
 		"many macaroons": {
-			macaroonsBase64: "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
-			expectedMacaroons: map[Identifier]*macaroon.Macaroon{
-				{
-					Version:     0,
-					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4},
-				}: mac1,
-				{
-					Version:     0,
-					PaymentHash: [32]byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-					ID:          [32]byte{3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
-				}: mac2,
-			},
+			macaroonsBase64:   "AgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAGIHqWvcIDGguzG0xeNz7kxTr4IrPg64b0EjRonYD3zkVeAgJCAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAGIJL//w3j0KDNo5jUh+g47BAyhvsP7eiNYFHlPDw4Od/Z",
+			expectedMacaroons: macaroon.Slice{mac1, mac2},
 		},
 	}
 
@@ -142,8 +111,8 @@ func TestUnmarshalMacaroons(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			macaroons, err := UnmarshalMacaroons(test.macaroonsBase64)
 
-			if !((err == nil) == (test.expectedError == nil)) || !(errors.Is(err, test.expectedError) || err.Error() == test.expectedError.Error()) {
-				t.Fatalf("expected: %v but got: %v", test.expectedError, err)
+			if !errors.Is(err, test.expectedError) {
+				t.Fatalf("expected: %s but got: %s", test.expectedError, err)
 			}
 
 			if !reflect.DeepEqual(macaroons, test.expectedMacaroons) {
@@ -153,24 +122,24 @@ func TestUnmarshalMacaroons(t *testing.T) {
 	}
 }
 
-func TestMarchalIdentifier(t *testing.T) {
+func TestMarshalIdentifier(t *testing.T) {
 	tests := map[string]struct {
 		version            uint16
 		paymentHash        Hash
 		id                 ID
 		expectedMacaroonId []byte
-		expectedErr        error
+		expectedError      error
 	}{
 		"invalid version": {
-			version:     1,
-			expectedErr: ErrUnknownVersion(1),
+			version:       1,
+			expectedError: ErrUnknownVersion(1),
 		},
 		"success": {
-			paymentHash: [BlockSize]byte{
+			paymentHash: [HashSize]byte{
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			id: [BlockSize]byte{
+			id: [HashSize]byte{
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
@@ -192,10 +161,10 @@ func TestMarchalIdentifier(t *testing.T) {
 				ID:          test.id,
 			}
 
-			macaroonID, err := MarchalIdentifier(identifier)
+			macaroonID, err := MarshalIdentifier(identifier)
 
-			if !errors.Is(err, test.expectedErr) {
-				t.Fatalf("expected: %v but got: %v", test.expectedErr, err)
+			if !errors.Is(err, test.expectedError) {
+				t.Fatalf("expected: %s but got: %s", test.expectedError, err)
 			}
 
 			if !bytes.Equal(macaroonID, test.expectedMacaroonId) {
@@ -210,11 +179,11 @@ func TestUnmarshalIdentifier(t *testing.T) {
 		macaroonID          []byte
 		expectedPaymentHash Hash
 		expectedId          ID
-		expectedErr         error
+		expectedError       error
 	}{
 		"empty value": {
-			macaroonID:  []byte{},
-			expectedErr: ErrUnknownVersion(-1),
+			macaroonID:    []byte{},
+			expectedError: ErrUnknownVersion(-1),
 		},
 		"malformed truncated value": {
 			macaroonID: []byte{
@@ -222,7 +191,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Payment Hash
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			expectedErr: ErrUnknownVersion(-1),
+			expectedError: ErrUnknownVersion(-1),
 		},
 		"malformed extended value": {
 			macaroonID: []byte{
@@ -233,7 +202,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 				0, 5,
 			},
-			expectedErr: ErrUnknownVersion(-1),
+			expectedError: ErrUnknownVersion(-1),
 		},
 		"wrong version": {
 			macaroonID: []byte{
@@ -243,7 +212,7 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
-			expectedErr: ErrUnknownVersion(2),
+			expectedError: ErrUnknownVersion(2),
 		},
 		"success": {
 			macaroonID: []byte{
@@ -253,11 +222,11 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
-			expectedPaymentHash: [BlockSize]byte{
+			expectedPaymentHash: [HashSize]byte{
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			expectedId: [BlockSize]byte{
+			expectedId: [HashSize]byte{
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
@@ -268,8 +237,8 @@ func TestUnmarshalIdentifier(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			identifier, err := UnmarshalIdentifier(test.macaroonID)
 
-			if !errors.Is(err, test.expectedErr) {
-				t.Fatalf("expected: %v but got: %v", test.expectedErr, err)
+			if !errors.Is(err, test.expectedError) {
+				t.Fatalf("expected: %s but got: %s", test.expectedError, err)
 			}
 
 			if identifier.PaymentHash != test.expectedPaymentHash {

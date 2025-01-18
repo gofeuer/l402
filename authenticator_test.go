@@ -3,7 +3,6 @@ package l402
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,11 +22,22 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 	}{
 		"failed minting": {
 			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
-				return "", nil, errors.New("some error")
+				return "", nil, ErrFailedMacaroonMinting
 			},
 			expectedError: spyHandler{
 				called:          true,
-				cancelCause:     fmt.Errorf("%w: %w", ErrFailedMacaroonMinting, errors.New("some error")),
+				cancelCause:     ErrFailedMacaroonMinting,
+				replyStatusCode: http.StatusInternalServerError,
+			},
+			expectedResponseStatus: http.StatusInternalServerError,
+		},
+		"failed invoice request": {
+			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
+				return "", nil, ErrFailedInvoiceRequest
+			},
+			expectedError: spyHandler{
+				called:          true,
+				cancelCause:     ErrFailedInvoiceRequest,
 				replyStatusCode: http.StatusInternalServerError,
 			},
 			expectedResponseStatus: http.StatusInternalServerError,
@@ -42,12 +52,12 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 			expectedResponseStatus:     http.StatusPaymentRequired,
 		},
 		"recoverable rejection": {
-			rejection: fakeRecoverableRejection(`rocovery="tier-upgrade" minimum-tier="premium-plus"`),
+			rejection: fakeRecoverableRejection(`recovery="tier-upgrade" minimum-tier="premium-plus"`),
 			mintWithChallenge: func(r *http.Request) (string, Challenge, error) {
 				return "macaroonBase64", Invoice("invoice"), nil
 			},
 			expectedHeaderAuthenticate:     `L402 macaroon="macaroonBase64", invoice="invoice"`,
-			expectedHeaderAuthenticateInfo: `rocovery="tier-upgrade" minimum-tier="premium-plus"`,
+			expectedHeaderAuthenticateInfo: `recovery="tier-upgrade" minimum-tier="premium-plus"`,
 			expectedResponse:               `payment required`,
 			expectedResponseStatus:         http.StatusPaymentRequired,
 		},
@@ -66,7 +76,7 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 			minter := mockMinter{test.mintWithChallenge}
 			errorHandler := spyHandler{replyStatusCode: test.expectedError.replyStatusCode}
 			w := httptest.NewRecorder()
-			r := httptest.NewRequest("GET", "/some_proctected_resource", nil)
+			r := httptest.NewRequest("GET", "/some_protected_resource", nil)
 			if test.rejection != nil {
 				ctx, cancelCause := context.WithCancelCause(r.Context())
 				cancelCause(test.rejection)
@@ -76,30 +86,33 @@ func TestAuthenticator_ServeHTTP(t *testing.T) {
 			Authenticator(minter, &errorHandler).ServeHTTP(w, r)
 
 			response := w.Result()
+			body, _ := io.ReadAll(response.Body)
+			defer response.Body.Close()
+			responseBody := strings.TrimSpace(string(body))
 
 			if errorHandler.called != test.expectedError.called {
 				t.Errorf("expected: %v but got: %v", test.expectedError.called, errorHandler.called)
 			}
 
-			if !(errors.Is(errorHandler.cancelCause, test.expectedError.cancelCause) ||
-				errorHandler.cancelCause.Error() == test.expectedError.cancelCause.Error()) {
-				t.Errorf("expected: %s but got: %s", test.expectedError.cancelCause.Error(), errorHandler.cancelCause.Error())
+			if !errors.Is(errorHandler.cancelCause, test.expectedError.cancelCause) {
+				t.Errorf("expected: %s but got: %s", test.expectedError.cancelCause, errorHandler.cancelCause)
 			}
 
-			if headerAuthenticate := response.Header.Get("WWW-Authenticate"); headerAuthenticate != test.expectedHeaderAuthenticate {
+			headerAuthenticate := response.Header.Get("WWW-Authenticate")
+			if headerAuthenticate != test.expectedHeaderAuthenticate {
 				t.Errorf("expected: %s but got: %s", test.expectedHeaderAuthenticate, headerAuthenticate)
 			}
 
-			if body, _ := io.ReadAll(response.Body); strings.TrimSpace(string(body)) != test.expectedResponse {
-				t.Errorf("expected: %s but got: %s", test.expectedResponse, body)
+			if responseBody != test.expectedResponse {
+				t.Errorf("expected: %s but got: %s", test.expectedResponse, responseBody)
 			}
-			response.Body.Close()
 
 			if response.StatusCode != test.expectedResponseStatus {
 				t.Errorf("expected: %d but got: %d", test.expectedResponseStatus, response.StatusCode)
 			}
 
-			if headerAuthenticateInfo := response.Header.Get("Authentication-Info"); headerAuthenticateInfo != test.expectedHeaderAuthenticateInfo {
+			headerAuthenticateInfo := response.Header.Get("Authentication-Info")
+			if headerAuthenticateInfo != test.expectedHeaderAuthenticateInfo {
 				t.Errorf("expected: %s but got: %s", test.expectedHeaderAuthenticateInfo, headerAuthenticateInfo)
 			}
 		})

@@ -11,12 +11,11 @@ import (
 	macaroon "gopkg.in/macaroon.v2"
 )
 
-const BlockSize = sha256.Size
+const HashSize = sha256.Size
 
 type (
-	ByteBlock [BlockSize]byte
-	Hash      ByteBlock
-	ID        ByteBlock
+	Hash [HashSize]byte
+	ID   [HashSize]byte
 )
 
 type Identifier struct {
@@ -31,10 +30,10 @@ func MarshalMacaroons(macaroons ...*macaroon.Macaroon) (string, error) {
 	return macaroonBase64, err
 }
 
-func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroon, error) {
+func UnmarshalMacaroons(macaroonBase64 string) (macaroon.Slice, error) {
 	macaroonBytes, err := base64.StdEncoding.DecodeString(macaroonBase64)
 	if err != nil {
-		// The macaroons might be separated by commas, so we strip them and try again
+		// The macaroons might be separated by commas, so we strip them and try again.
 		macaroonBase64 = strings.ReplaceAll(macaroonBase64, ",", "")
 		if macaroonBytes, err = base64.StdEncoding.DecodeString(macaroonBase64); err != nil {
 			return nil, err
@@ -42,47 +41,33 @@ func UnmarshalMacaroons(macaroonBase64 string) (map[Identifier]*macaroon.Macaroo
 	}
 
 	macaroons := make(macaroon.Slice, 0, 1)
-	if err := macaroons.UnmarshalBinary(macaroonBytes); err != nil {
-		return nil, err
-	}
-
-	macaroonsMap := make(map[Identifier]*macaroon.Macaroon, len(macaroons))
-
-	for i, macaroon := range macaroons {
-		identifier, err := UnmarshalIdentifier(macaroon.Id())
-		if err != nil {
-			return nil, fmt.Errorf("index %d: %w", i, err)
-		}
-		macaroonsMap[identifier] = macaroon
-	}
-
-	return macaroonsMap, err
+	return macaroons, macaroons.UnmarshalBinary(macaroonBytes)
 }
 
 var (
-	macaroonIDSize    = int(reflect.TypeFor[Identifier]().Size())
-	versionOffet      = reflect.TypeFor[uint16]().Size()
-	paymentHashOffset = reflect.TypeFor[Hash]().Size()
+	identifierBytesLength = int(reflect.TypeFor[Identifier]().Size())
+	versionOffset         = reflect.TypeFor[uint16]().Size()
+	paymentHashOffset     = reflect.TypeFor[Hash]().Size()
 )
 
-func MarchalIdentifier(identifier Identifier) ([]byte, error) {
+func MarshalIdentifier(identifier Identifier) ([]byte, error) {
 	if identifier.Version != 0 {
 		return nil, ErrUnknownVersion(identifier.Version)
 	}
 
-	macaroonID := make([]byte, macaroonIDSize)
+	identifierBytes := make([]byte, identifierBytesLength)
 
-	offset := versionOffet // Skip the version location, it's already initialized as zero
-	copy(macaroonID[offset:], identifier.PaymentHash[:])
+	offset := versionOffset // Skip the version location, it's already initialized as zero.
+	copy(identifierBytes[offset:], identifier.PaymentHash[:])
 
 	offset += paymentHashOffset
-	copy(macaroonID[offset:], identifier.ID[:])
+	copy(identifierBytes[offset:], identifier.ID[:])
 
-	return macaroonID, nil
+	return identifierBytes, nil
 }
 
 func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
-	if len(identifierBytes) != macaroonIDSize {
+	if len(identifierBytes) != identifierBytesLength {
 		return Identifier{}, ErrUnknownVersion(-1)
 	} else if version := binary.BigEndian.Uint16(identifierBytes); version != 0 {
 		return Identifier{}, ErrUnknownVersion(version)
@@ -90,7 +75,7 @@ func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 
 	var identifier Identifier
 
-	offset := versionOffet // Skip the version, we alredy know it's zero
+	offset := versionOffset // Skip the version, we already know it's zero.
 	copy(identifier.PaymentHash[:], identifierBytes[offset:])
 
 	offset += paymentHashOffset
@@ -99,7 +84,7 @@ func UnmarshalIdentifier(identifierBytes []byte) (Identifier, error) {
 	return identifier, nil
 }
 
-type ErrUnknownVersion int //nolint:errname
+type ErrUnknownVersion int
 
 func (e ErrUnknownVersion) Error() string {
 	return fmt.Sprintf("unknown L402 version: %d", e)
