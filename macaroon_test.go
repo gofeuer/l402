@@ -124,22 +124,17 @@ func TestUnmarshalMacaroons(t *testing.T) {
 
 func TestMarshalIdentifier(t *testing.T) {
 	tests := map[string]struct {
-		version            uint16
 		paymentHash        Hash
 		id                 ID
 		expectedMacaroonId []byte
 		expectedError      error
 	}{
-		"invalid version": {
-			version:       1,
-			expectedError: ErrUnknownVersion(1),
-		},
 		"success": {
-			paymentHash: [HashSize]byte{
+			paymentHash: Hash{
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			id: [HashSize]byte{
+			id: ID{
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
@@ -156,16 +151,11 @@ func TestMarshalIdentifier(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			identifier := Identifier{
-				Version:     test.version,
 				PaymentHash: test.paymentHash,
 				ID:          test.id,
 			}
 
-			macaroonID, err := MarshalIdentifier(identifier)
-
-			if !errors.Is(err, test.expectedError) {
-				t.Fatalf("expected: %s but got: %s", test.expectedError, err)
-			}
+			macaroonID := MarshalIdentifier(identifier)
 
 			if !bytes.Equal(macaroonID, test.expectedMacaroonId) {
 				t.Errorf("expected: %s but got: %s", test.expectedMacaroonId, macaroonID)
@@ -222,11 +212,11 @@ func TestUnmarshalIdentifier(t *testing.T) {
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Id
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},
-			expectedPaymentHash: [HashSize]byte{
+			expectedPaymentHash: Hash{
 				1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2,
 			},
-			expectedId: [HashSize]byte{
+			expectedId: ID{
 				3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4,
 			},

@@ -54,6 +54,20 @@ func Proxy(minter MacaroonMinter, authority AccessAuthority, options ...option) 
 	}
 }
 
+type option func(*proxy)
+
+func WithAuthenticator(authenticator http.Handler) option {
+	return func(p *proxy) {
+		p.authenticator = authenticator
+	}
+}
+
+func WithErrorHandler(errorHandler http.Handler) option {
+	return func(p *proxy) {
+		p.errorHandler = errorHandler
+	}
+}
+
 type ContextKey string
 
 const KeyMacaroon ContextKey = "proxy_macaroon"
@@ -92,7 +106,7 @@ func (p proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 const (
-	hexSize             = HashSize * 2
+	hexSize             = sha256.Size * 2
 	expectedMatches     = 3 // L402 (\S+):([a-f0-9]{64}) -> [authorizationHeader, macaroonBase64, preimageHex]
 	macaroonBase64Index = 1
 	preimageHexIndex    = 2
@@ -105,30 +119,18 @@ func getL402AuthorizationHeader(r *http.Request) (string, Hash, bool) {
 
 	for _, authorizationHeader := range r.Header.Values("Authorization") {
 		matches := authorizationMatcher.FindStringSubmatch(authorizationHeader)
-		if len(matches) == expectedMatches {
-			macaroonBase64 := matches[macaroonBase64Index]
-			preimageHex := matches[preimageHexIndex]
-
-			// preimageHex is guaranteed by authorizationMatcher to be a string of 64 hexadecimal characters.
-			hex.Decode(preimageHash[:], []byte(preimageHex)) //nolint:errcheck
-			preimageHash = sha256.Sum256(preimageHash[:])
-
-			return macaroonBase64, preimageHash, true
+		if len(matches) != expectedMatches {
+			continue
 		}
+
+		macaroonBase64 := matches[macaroonBase64Index]
+		preimageHex := matches[preimageHexIndex]
+
+		// preimageHex is guaranteed by authorizationMatcher to be a string of 64 hexadecimal characters.
+		hex.Decode(preimageHash[:], []byte(preimageHex)) //nolint:errcheck
+		preimageHash = sha256.Sum256(preimageHash[:])
+
+		return macaroonBase64, preimageHash, true
 	}
 	return "", Hash{}, false
-}
-
-type option func(*proxy)
-
-func WithAuthenticator(authenticator http.Handler) option {
-	return func(p *proxy) {
-		p.authenticator = authenticator
-	}
-}
-
-func WithErrorHandler(errorHandler http.Handler) option {
-	return func(p *proxy) {
-		p.errorHandler = errorHandler
-	}
 }

@@ -93,12 +93,13 @@ func (m YourAccessAuthority) ApproveAccess(r *http.Request, macaroons macaroon.S
 		identifier, err := UnmarshalIdentifier(macaroon.Id())
 		// Verify if `identifier.PaymentHash` is equal to `preimage`
 		// Verify if macaroon is signed by the correct rootKey.
+		return errors.New("{rejection reason}")
 	}
 
 	// Here you should determine if the received macaroons give access to the resource requested by: (r *http.Request)
 
 	// Return nil if the request is approved.
-	return errors.New("{rejection reason}")
+	return nil
 }
 ```
 

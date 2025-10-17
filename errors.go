@@ -3,6 +3,7 @@ package l402
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
@@ -14,10 +15,18 @@ var (
 	ErrPaymentRequired       = errors.New("payment required")
 )
 
+type ErrUnknownVersion int
+
+func (e ErrUnknownVersion) Error() string {
+	return fmt.Sprintf("unknown L402 version: %d", e)
+}
+
 func DefaultErrorHandler(w http.ResponseWriter, r *http.Request) {
 	err := context.Cause(r.Context())
 	switch {
-	case errors.Is(err, ErrInvalidMacaroon), errors.Is(err, ErrInvalidPreimage):
+	case
+		errors.Is(err, ErrInvalidMacaroon),
+		errors.Is(err, ErrInvalidPreimage):
 		http.Error(w, err.Error(), http.StatusBadRequest)
 	default:
 		http.Error(w, err.Error(), http.StatusInternalServerError)
